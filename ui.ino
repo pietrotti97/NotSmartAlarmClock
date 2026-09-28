@@ -14,6 +14,7 @@ typedef enum{
   UI_SET_SNOOZETIME, // set elevation screen
   UI_SET_WIFI, // set elevation screen
   UI_SET_DUMMY, // set elevation screen
+  UI_SET_SECONDSDRIFT, // set drift per day in seconds
   UI_NOF
 }uiStates_e;
 
@@ -186,6 +187,7 @@ void interface()
       case UI_SET_SNOOZETIME: displaySetSnoozetime(); break;
       case UI_SET_WIFI: displaySetWiFi(); break;
       case UI_SET_DUMMY: displaySetDummy(); break;
+      case UI_SET_SECONDSDRIFT: displaySetSecondsdrift(); break;
       default: ui.position = UI_HOME; break;
     }
     u8g2.sendBuffer();
@@ -277,8 +279,8 @@ void displayMain(void)
 }
 
 
-const char* options[] = { "Set Time", "Set Alarm", "Elevation", "Back", "Snooze Time", "WiFi", "Inculati"};
-const uint8_t optionCount = 7;
+const char* options[] = { "Set Time", "Set Alarm", "Elevation", "Back", "Snooze Time", "WiFi", "Inculati", "Set Drift/day"};
+const uint8_t optionCount = 8;
 
 void displayMenu(void) {
   char string[30];
@@ -321,6 +323,7 @@ void displayMenu(void) {
       case 4: ui.position = UI_SET_SNOOZETIME; break;
       case 5: ui.position = UI_SET_WIFI; break;
       case 6: ui.position = UI_SET_DUMMY; break;
+      case 7: ui.position = UI_SET_SECONDSDRIFT; break;
       default: ui.position = UI_MENU; break;
     }
     ui.action.encBtn = BTN_RELEASED;
@@ -719,4 +722,55 @@ void displaySetWiFi(void)
 void displaySetDummy(void)
 {
 
+}
+
+void displaySetSecondsdrift(void) 
+{
+  static bool onEnter = false;
+  static int16_t currVal = 0;
+  char string[30];
+  snprintf(string, sizeof(string), "SECONDS DRIFT SET");
+  drawString(1, 9, 8, string);
+  u8g2.drawHLine(1, 10, 128);
+
+  if (onEnter == false) {
+    currVal = eeprom.data.time.secondsDriftPerDay;
+    onEnter = true;
+  }
+
+  snprintf(string, sizeof(string),"%3.0d s", currVal);
+  drawString(10, 45, 26, string);
+
+
+  ui.refresh = false;
+
+  if (ui.action.topBtn == BTN_PRESSED) {
+    setBacklight(true);
+    ui.action.topBtn = BTN_RELEASED;
+    ui.refresh = true;
+  } 
+  if (ui.action.encBtn == BTN_PRESSED) {
+    eeprom.data.time.secondsDriftPerDay = currVal;
+    ui.position = UI_MENU;
+    myTimers.uiTout = LCD_UI_TOUT_SHORT;
+    onEnter = false;
+    ui.action.encBtn = BTN_RELEASED;
+    ui.refresh = true;
+  } 
+
+  if (ui.action.encSteps != 0) {
+    if (ui.action.encSteps > 0) {
+      ui.action.encSteps --;
+      // increase number
+      if (currVal < 999)
+        currVal ++;
+    } else if (ui.action.encSteps < 0) {
+      ui.action.encSteps ++;
+      // decrease number
+      if (currVal >-999)
+        currVal --;
+    }
+    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    ui.refresh = true;
+  }
 }

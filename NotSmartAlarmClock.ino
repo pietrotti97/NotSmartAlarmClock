@@ -75,6 +75,9 @@ typedef enum {
 
 typedef struct {
   struct {
+    int32_t secondsDriftPerDay;
+  }time;
+  struct {
     uint8_t hour;
     uint8_t min;
     uint8_t dow;  // bitmask as xdlmmgvs
@@ -244,11 +247,9 @@ void loop() {
 }
 
 extern "C" void esp_clk_slowclk_cal_set(uint32_t cal_val);
-//const int64_t RTCSecondsToCorrect = -2; // togliere 2 secondi (- -> rtc troppo veloce, + -> rtc troppo lento)
-//const int64_t RTCSecondsInterval = 3600;  // in questo lasso di tempo 
 
 void gotoLightSleep() {
-  ledcWrite(PIN_BACKLIGHT, 255);
+  digitalWrite(PIN_BACKLIGHT, HIGH);
   gpio_wakeup_enable((gpio_num_t)PIN_BTN1, GPIO_INTR_LOW_LEVEL);
   gpio_wakeup_enable((gpio_num_t)PIN_ENCODER_BTN, GPIO_INTR_LOW_LEVEL);
 
@@ -287,17 +288,15 @@ void gotoLightSleep() {
   uint64_t sleepDuration = nextMinuteUs - nowUs;
 
   if (sleepDuration < 10000ULL) { sleepDuration = 10000ULL; }
-
   esp_sleep_enable_timer_wakeup(sleepDuration);
-  esp_light_sleep_start();
-
   uint32_t cal_val = rtc_clk_cal(RTC_CAL_RTC_MUX, 8192);
   if (cal_val > 0) {
-    //int64_t corrTime = RTCSecondsInterval + RTCSecondsToCorrect;
-    //uint64_t corr_cal_val = ((uint64_t) cal_val + corrTime) / RTCSecondsInterval;
-    esp_clk_slowclk_cal_set(cal_val);  
-    //esp_clk_slowclk_cal_set(corr_cal_val);  
+    //esp_clk_slowclk_cal_set(cal_val);  
+    int64_t corrCalVal = (((int64_t) cal_val) * (86400LL + eeprom.data.time.secondsDriftPerDay))/ 86400LL;
+    esp_clk_slowclk_cal_set((uint32_t)corrCalVal);  
   }
+  esp_light_sleep_start();
+
 
   gpio_hold_dis((gpio_num_t)PIN_3V3_SW);
   gpio_hold_dis((gpio_num_t)PIN_EN_ADCVBAT);
