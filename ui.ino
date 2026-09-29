@@ -15,8 +15,12 @@ typedef enum{
   UI_SET_WIFI, // set elevation screen
   UI_SET_DUMMY, // set elevation screen
   UI_SET_SECONDSDRIFT, // set drift per day in seconds
+  UI_SET_BACKLIGHT,
   UI_NOF
 }uiStates_e;
+
+const char* options[] = { "Set Time", "Set Alarm", "Elevation", "Back", "Snooze Time", "WiFi", "Inculati", "Set Drift/day", "Backlight"};
+const uint8_t optionCount = 8;
 
 typedef struct {
   uiStates_e position;
@@ -188,6 +192,7 @@ void interface()
       case UI_SET_WIFI: displaySetWiFi(); break;
       case UI_SET_DUMMY: displaySetDummy(); break;
       case UI_SET_SECONDSDRIFT: displaySetSecondsdrift(); break;
+      case UI_SET_BACKLIGHT: displaySetBacklight(); break;
       default: ui.position = UI_HOME; break;
     }
     u8g2.sendBuffer();
@@ -275,12 +280,7 @@ void displayMain(void)
   } else {
     u8g2.drawXBMP(112, 57, 16, 8, icona_batteria_scarica_16x8);
   }
-  
 }
-
-
-const char* options[] = { "Set Time", "Set Alarm", "Elevation", "Back", "Snooze Time", "WiFi", "Inculati", "Set Drift/day"};
-const uint8_t optionCount = 8;
 
 void displayMenu(void) {
   char string[30];
@@ -627,7 +627,8 @@ void displaySetElevation() {
     onEnter = true;
   }
 
-  snprintf(string, sizeof(string),"%4.0d m", currentElevation);
+  //snprintf(string, sizeof(string),"%4.0d m", currentElevation);
+  snprintf(string, sizeof(string), "%4" PRId16 " m", currentElevation);
   drawString(10, 45, 26, string);
 
 
@@ -666,7 +667,7 @@ void displaySetElevation() {
 void displaySetSnoozetime(void)
 {
   static bool onEnter = false;
-  static int16_t currVal = 0;
+  static uint8_t currVal = 0;
   char string[30];
   snprintf(string, sizeof(string), "SNOOZE SET");
   drawString(13, 9, 8, string);
@@ -677,7 +678,7 @@ void displaySetSnoozetime(void)
     onEnter = true;
   }
 
-  snprintf(string, sizeof(string),"%2.0d min", currVal);
+  snprintf(string, sizeof(string),"%2.0u min", currVal);
   drawString(10, 45, 26, string);
 
 
@@ -738,7 +739,8 @@ void displaySetSecondsdrift(void)
     onEnter = true;
   }
 
-  snprintf(string, sizeof(string),"%3.0d s", currVal);
+  //snprintf(string, sizeof(string),"%3.0u s", currVal);
+  snprintf(string, sizeof(string), "%4" PRId16 " m", currVal);
   drawString(10, 45, 26, string);
 
 
@@ -769,6 +771,66 @@ void displaySetSecondsdrift(void)
       // decrease number
       if (currVal >-999)
         currVal --;
+    }
+    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    ui.refresh = true;
+  }
+}
+
+void displaySetBacklight(void) 
+{
+  static bool onEnter = false;
+  static uint8_t bklVal = 0;
+  static uint8_t bklPerc = 0;
+  static uint8_t stbTout = 0;
+  char string[30];
+  snprintf(string, sizeof(string), "BACKLIGHT SET");
+  drawString(1, 9, 8, string);
+  u8g2.drawHLine(1, 10, 128);
+
+  if (onEnter == false) {
+    bklVal = eeprom.data.backlight.durationSec;
+    bklPerc = eeprom.data.backlight.perc;
+    stbTout = eeprom.data.backlight.stbTout;
+    onEnter = true;
+  }
+
+//void drawString(uint8_t x, uint8_t y, uint8_t size, const char *s)
+
+  snprintf(string, sizeof(string),"Perc: %3d %", bklPerc);
+  drawString(2, 10, 8, string);
+  snprintf(string, sizeof(string),"Val: %2d s", bklVal);
+  drawString(2, 35, 8, string);
+  snprintf(string, sizeof(string),"Stb Tout: %2d s", stbTout);
+  drawString(2, 60, 8, string);
+
+  ui.refresh = false;
+
+  if (ui.action.topBtn == BTN_PRESSED) {
+    setBacklight(true);
+    ui.action.topBtn = BTN_RELEASED;
+    ui.refresh = true;
+  } 
+  if (ui.action.encBtn == BTN_PRESSED) {
+    eeprom.data.backlight.durationSec = bklVal;
+    eeprom.data.backlight.perc = bklPerc;
+    eeprom.data.backlight.stbTout = stbTout;
+    ui.position = UI_MENU;
+    myTimers.uiTout = LCD_UI_TOUT_SHORT;
+    onEnter = false;
+    ui.action.encBtn = BTN_RELEASED;
+    ui.refresh = true;
+  } 
+
+  if (ui.action.encSteps != 0) {
+    if (ui.action.encSteps > 0) {
+      ui.action.encSteps --;
+      // increase number
+
+    } else if (ui.action.encSteps < 0) {
+      ui.action.encSteps ++;
+      // decrease number
+
     }
     myTimers.uiTout = LCD_UI_TOUT_LONG;
     ui.refresh = true;

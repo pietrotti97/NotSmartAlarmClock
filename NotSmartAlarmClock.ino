@@ -75,7 +75,7 @@ typedef enum {
 
 typedef struct {
   struct {
-    int32_t secondsDriftPerDay;
+    int16_t secondsDriftPerDay;
   }time;
   struct {
     uint8_t hour;
@@ -91,8 +91,9 @@ typedef struct {
     char pwd[32];
   }wifiNet;
   struct {
-    uint8_t duration;
+    uint8_t durationSec;
     uint8_t perc;
+    uint8_t stbTout;
   }backlight;
 }data_s;
 
@@ -275,6 +276,12 @@ void gotoLightSleep() {
   gpio_hold_en((gpio_num_t)PIN_3V3_SW);
   gpio_hold_en((gpio_num_t)PIN_EN_ADCVBAT);
   gpio_hold_en((gpio_num_t)PIN_BACKLIGHT);
+
+  //gpio_sleep_sel_dis((gpio_num_t)I2C_SDA);
+  //gpio_sleep_sel_dis((gpio_num_t)I2C_SCL); 
+  //gpio_pullup_en((gpio_num_t)I2C_SDA);
+  //gpio_pullup_en((gpio_num_t)I2C_SCL);
+
   gpio_hold_en((gpio_num_t)I2C_SDA);
   gpio_hold_en((gpio_num_t)I2C_SCL);
 
@@ -286,19 +293,25 @@ void gotoLightSleep() {
   const uint64_t US_PER_MINUTE = 60ULL * US_PER_SECOND;
 
   uint64_t nowUs = ((uint64_t)now.tv_sec * US_PER_SECOND) + (uint64_t)now.tv_usec;
-  uint64_t nextMinuteUs = ((nowUs / US_PER_MINUTE) + 1ULL) * US_PER_MINUTE;
+  //uint64_t nextMinuteUs = ((nowUs / US_PER_MINUTE) + 1ULL) * US_PER_MINUTE;
+  uint64_t nextMinuteUs = (((nowUs / US_PER_MINUTE) + 1ULL) * US_PER_MINUTE) + 500000ULL;
   uint64_t sleepDuration = nextMinuteUs - nowUs;
 
   if (sleepDuration < 10000ULL) { sleepDuration = 10000ULL; }
   esp_sleep_enable_timer_wakeup(sleepDuration);
-  uint32_t cal_val = rtc_clk_cal(RTC_CAL_RTC_MUX, 8192);
-  if (cal_val > 0) {
-    //esp_clk_slowclk_cal_set(cal_val);  
-    int64_t corrCalVal = (((int64_t) cal_val) * (86400LL + eeprom.data.time.secondsDriftPerDay))/ 86400LL;
-    esp_clk_slowclk_cal_set((uint32_t)corrCalVal);  
-  }
+  
   esp_light_sleep_start();
 
+  struct timeval afterSleep;
+  gettimeofday(&afterSleep, nullptr);
+  uint64_t actualSleepUs = ((uint64_t)afterSleep.tv_sec * US_PER_SECOND + afterSleep.tv_usec) - nowUs;
+  int64_t driftUs = ((int64_t)actualSleepUs * eeprom.data.time.secondsDriftPerDay) / 86400LL;
+  int64_t correctedTimeUs = ((int64_t)afterSleep.tv_sec * US_PER_SECOND) + afterSleep.tv_usec + driftUs;
+
+  afterSleep.tv_sec = correctedTimeUs / US_PER_SECOND;
+  afterSleep.tv_usec = correctedTimeUs % US_PER_SECOND;
+
+  settimeofday(&afterSleep, nullptr);
 
   gpio_hold_dis((gpio_num_t)PIN_3V3_SW);
   gpio_hold_dis((gpio_num_t)PIN_EN_ADCVBAT);
