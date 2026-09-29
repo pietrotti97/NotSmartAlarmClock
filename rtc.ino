@@ -2,32 +2,33 @@
 
 
 void resetRtcTime() {
-  time_t currTime;
   if (rtcInit != RTC_KEY) {
     rtcInit = RTC_KEY;
-    sysTime.calendar.tm_hour = 0;
-    sysTime.calendar.tm_min = 0;
-    sysTime.calendar.tm_sec = 0;
-    sysTime.calendar.tm_yday = 2026 - 1900;
-    sysTime.calendar.tm_mon = 7;
-    sysTime.calendar.tm_mday = 29;
-    sysTime.calendar.tm_isdst = -1;
-    time_t timestamp = mktime(&sysTime.calendar);
+    struct tm t;
+    t.tm_hour = 0;
+    t.tm_min = 0;
+    t.tm_sec = 0;
+    t.tm_mday = 29;
+    t.tm_mon = 8 - 1;
+    t.tm_year = 2026 - 1900;
+    t.tm_isdst = -1;
+    time_t timestamp = mktime(&t);
     struct timeval tv = {.tv_sec = timestamp, .tv_usec = 0};
     settimeofday(&tv, NULL);
   }
 }
 
+
 void setRtcTime(uint8_t hour, uint8_t min, uint8_t sec, uint8_t day, uint8_t month, uint16_t year) {
-  time_t currTime;
-  sysTime.calendar.tm_hour = hour;
-  sysTime.calendar.tm_min = min;
-  sysTime.calendar.tm_sec = sec;
-  sysTime.calendar.tm_yday = year - 1900;
-  sysTime.calendar.tm_mon = month;
-  sysTime.calendar.tm_mday = day;
-  sysTime.calendar.tm_isdst = -1;
-  time_t timestamp = mktime(&sysTime.calendar);
+  struct tm t;
+  t.tm_hour = hour;
+  t.tm_min = min;
+  t.tm_sec = sec;
+  t.tm_mday = day;
+  t.tm_mon = month -1;
+  t.tm_year = year - 1900;
+  t.tm_isdst = -1;
+  time_t timestamp = mktime(&t);
   struct timeval tv = {.tv_sec = timestamp, .tv_usec = 0};
   settimeofday(&tv, NULL);
 }
@@ -44,7 +45,6 @@ void checkTime() {
     myTimers.clock = 1;
   }
 }
-
 
 void newDayStuff() {
   if (sysTime.newDay == 1) {

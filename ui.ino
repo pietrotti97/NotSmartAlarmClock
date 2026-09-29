@@ -364,7 +364,7 @@ void displaySetTime() {
 
   snprintf(string, sizeof(string), "%02d:%02d.%02d", calendar.tm_hour, calendar.tm_min, calendar.tm_sec);
   drawString(4, 38, 26, string);
-  snprintf(string, sizeof(string), "%2d/%02d/%04d", calendar.tm_mday, calendar.tm_mon + 1, calendar.tm_year + 1900);
+  snprintf(string, sizeof(string), "%2d/%02d/%04d", calendar.tm_mday, calendar.tm_mon + 1, calendar.tm_year+1900);
   drawString(25, 55, 8, string);
 
   switch(selectField) {
