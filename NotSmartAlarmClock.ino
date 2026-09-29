@@ -275,6 +275,8 @@ void gotoLightSleep() {
   gpio_hold_en((gpio_num_t)PIN_3V3_SW);
   gpio_hold_en((gpio_num_t)PIN_EN_ADCVBAT);
   gpio_hold_en((gpio_num_t)PIN_BACKLIGHT);
+  gpio_hold_en((gpio_num_t)I2C_SDA);
+  gpio_hold_en((gpio_num_t)I2C_SCL);
 
   esp_sleep_enable_gpio_wakeup();
 
@@ -301,4 +303,6 @@ void gotoLightSleep() {
   gpio_hold_dis((gpio_num_t)PIN_3V3_SW);
   gpio_hold_dis((gpio_num_t)PIN_EN_ADCVBAT);
   gpio_hold_dis((gpio_num_t)PIN_BACKLIGHT);
+  gpio_hold_dis((gpio_num_t)I2C_SDA);
+  gpio_hold_dis((gpio_num_t)I2C_SCL);
 }
