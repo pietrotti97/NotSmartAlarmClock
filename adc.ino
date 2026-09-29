@@ -7,10 +7,10 @@ void readVBatt() {
     //int rawValue = analogRead(PIN_ADC_VBAT);
     float v_adc = analogReadMilliVolts(PIN_ADC_VBAT) / 1000.0; 
     float v_batt = v_adc * ADC_RESISTOR;
-     
     logPrintf("\n\rVbatt: %1.2f", v_batt);
-    ambData.vBatt = v_batt;
-
+    if (v_batt != 0) {  
+      ambData.vBatt = v_batt;
+    }
     digitalWrite(PIN_EN_ADCVBAT, LOW);
     myTimers.adc = 1;
   }
