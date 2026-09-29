@@ -125,3 +125,4 @@ const unsigned char icona_batteria_scarica_16x8[] PROGMEM = {
 };
 
 
+

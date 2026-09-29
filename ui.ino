@@ -20,7 +20,7 @@ typedef enum{
 }uiStates_e;
 
 const char* options[] = { "Set Time", "Set Alarm", "Elevation", "Back", "Snooze Time", "WiFi", "Inculati", "Set Drift/day", "Backlight"};
-const uint8_t optionCount = 8;
+const uint8_t optionCount = 9;
 
 typedef struct {
   uiStates_e position;
@@ -239,7 +239,7 @@ void displayMain(void)
   if (ui.action.topBtn == BTN_PRESSED) {
     logPrintf("Home - TopBtn Pressed");
     playTone(BUZ_TONE_LOW, BUZ_PULSE_VERYSHORT);
-    setBacklight(true);
+    backlightOn();
     stopAlarm();
     ui.action.topBtn = BTN_RELEASED;
     ui.refresh = true;
@@ -310,7 +310,7 @@ void displayMenu(void) {
   ui.refresh = false;
 
   if (ui.action.topBtn == BTN_PRESSED) {
-    setBacklight(true);
+    backlightOn();
     ui.action.topBtn = BTN_RELEASED;
     ui.refresh = true;
   } 
@@ -324,6 +324,7 @@ void displayMenu(void) {
       case 5: ui.position = UI_SET_WIFI; break;
       case 6: ui.position = UI_SET_DUMMY; break;
       case 7: ui.position = UI_SET_SECONDSDRIFT; break;
+      case 8: ui.position = UI_SET_BACKLIGHT; break;
       default: ui.position = UI_MENU; break;
     }
     ui.action.encBtn = BTN_RELEASED;
@@ -380,7 +381,7 @@ void displaySetTime() {
   ui.refresh = false;
 
   if (ui.action.topBtn == BTN_PRESSED) {
-    setBacklight(true);
+    backlightOn();
     ui.action.topBtn = BTN_RELEASED;
     ui.refresh = true;
   } 
@@ -534,7 +535,7 @@ void displaySetAlarm() {
   ui.refresh = false;
 
   if (ui.action.topBtn == BTN_PRESSED) {
-    setBacklight(true);
+    backlightOn();
     ui.action.topBtn = BTN_RELEASED;
     ui.refresh = true;
   } 
@@ -635,7 +636,7 @@ void displaySetElevation() {
   ui.refresh = false;
 
   if (ui.action.topBtn == BTN_PRESSED) {
-    setBacklight(true);
+    backlightOn();
     ui.action.topBtn = BTN_RELEASED;
     ui.refresh = true;
   } 
@@ -685,7 +686,7 @@ void displaySetSnoozetime(void)
   ui.refresh = false;
 
   if (ui.action.topBtn == BTN_PRESSED) {
-    setBacklight(true);
+    backlightOn();
     ui.action.topBtn = BTN_RELEASED;
     ui.refresh = true;
   } 
@@ -730,7 +731,7 @@ void displaySetSecondsdrift(void)
   static bool onEnter = false;
   static int16_t currVal = 0;
   char string[30];
-  snprintf(string, sizeof(string), "SECONDS DRIFT SET");
+  snprintf(string, sizeof(string), "DRIFT SET SEC");
   drawString(1, 9, 8, string);
   u8g2.drawHLine(1, 10, 128);
 
@@ -739,15 +740,19 @@ void displaySetSecondsdrift(void)
     onEnter = true;
   }
 
-  //snprintf(string, sizeof(string),"%3.0u s", currVal);
-  snprintf(string, sizeof(string), "%4" PRId16 " m", currVal);
-  drawString(10, 45, 26, string);
+  
+  snprintf(string, sizeof(string), "%4" PRId16 " s", currVal);
+  drawString(10, 40, 26, string);
 
+  snprintf(string, sizeof(string), "Used to correct");
+  drawString(0, 50, 8, string);
+  snprintf(string, sizeof(string), "RTC accuracy");
+  drawString(0, 60, 8, string);
 
   ui.refresh = false;
 
   if (ui.action.topBtn == BTN_PRESSED) {
-    setBacklight(true);
+    backlightOn();
     ui.action.topBtn = BTN_RELEASED;
     ui.refresh = true;
   } 
@@ -780,7 +785,8 @@ void displaySetSecondsdrift(void)
 void displaySetBacklight(void) 
 {
   static bool onEnter = false;
-  static uint8_t bklVal = 0;
+  static uint8_t selectField = 0;
+  static uint8_t bklTout = 0;
   static uint8_t bklPerc = 0;
   static uint8_t stbTout = 0;
   char string[30];
@@ -789,35 +795,52 @@ void displaySetBacklight(void)
   u8g2.drawHLine(1, 10, 128);
 
   if (onEnter == false) {
-    bklVal = eeprom.data.backlight.durationSec;
+    bklTout = eeprom.data.backlight.durationSec;
     bklPerc = eeprom.data.backlight.perc;
-    stbTout = eeprom.data.backlight.stbTout;
+    stbTout = eeprom.data.backlight.stbToutSec;
     onEnter = true;
   }
 
-//void drawString(uint8_t x, uint8_t y, uint8_t size, const char *s)
 
-  snprintf(string, sizeof(string),"Perc: %3d %", bklPerc);
-  drawString(2, 10, 8, string);
-  snprintf(string, sizeof(string),"Val: %2d s", bklVal);
-  drawString(2, 35, 8, string);
-  snprintf(string, sizeof(string),"Stb Tout: %2d s", stbTout);
-  drawString(2, 60, 8, string);
+  snprintf(string, sizeof(string),"Tout:");
+  drawString(2, 25, 8, string);
+  snprintf(string, sizeof(string),"%2d s", bklTout);
+  drawString(80, 25, 8, string);
+  snprintf(string, sizeof(string),"Perc:");
+  drawString(2, 40, 8, string);
+  snprintf(string, sizeof(string),"%3d% %", bklPerc);
+  drawString(80, 40, 8, string);
+  snprintf(string, sizeof(string),"Stb Tout:");
+  drawString(2, 55, 8, string);
+  snprintf(string, sizeof(string),"%2d s", stbTout);
+  drawString(80, 55, 8, string);
+  
+  switch(selectField) {
+    case 0: u8g2.drawHLine(80, 28, 30); break;
+    case 1: u8g2.drawHLine(80, 43, 30); break;
+    case 2: u8g2.drawHLine(80, 58, 30); break;
+    default: selectField = 0; break;
+  }
 
   ui.refresh = false;
 
   if (ui.action.topBtn == BTN_PRESSED) {
-    setBacklight(true);
+    backlightOn();
     ui.action.topBtn = BTN_RELEASED;
     ui.refresh = true;
   } 
   if (ui.action.encBtn == BTN_PRESSED) {
-    eeprom.data.backlight.durationSec = bklVal;
-    eeprom.data.backlight.perc = bklPerc;
-    eeprom.data.backlight.stbTout = stbTout;
-    ui.position = UI_MENU;
-    myTimers.uiTout = LCD_UI_TOUT_SHORT;
-    onEnter = false;
+    selectField ++;
+    if(selectField > 2) {
+      selectField = 0;
+      eeprom.data.backlight.durationSec = bklTout;
+      eeprom.data.backlight.perc = bklPerc;
+      eeprom.data.backlight.stbToutSec = stbTout;
+      onEnter = false;
+      ui.position = UI_MENU;
+      backlightOff();
+    }
+    myTimers.uiTout = LCD_UI_TOUT_LONG;
     ui.action.encBtn = BTN_RELEASED;
     ui.refresh = true;
   } 
@@ -826,11 +849,31 @@ void displaySetBacklight(void)
     if (ui.action.encSteps > 0) {
       ui.action.encSteps --;
       // increase number
-
+      switch(selectField) {
+        case 0: if (bklTout < 60) {bklTout ++;} break;
+        case 1: 
+          if (bklPerc < 100) {
+              bklPerc ++;
+              setBacklight(1, bklPerc, 1);
+            } 
+          break;
+        case 2: if (stbTout < 120) {stbTout ++;} break;
+        default: selectField = 0; break;        
+      }
     } else if (ui.action.encSteps < 0) {
       ui.action.encSteps ++;
       // decrease number
-
+      switch(selectField) {
+        case 0: if (bklTout > 5) {bklTout --;} break;
+        case 1: 
+          if (bklPerc > 0) {
+            bklPerc --;
+            setBacklight(1, bklPerc, 1);
+          }
+          break;
+        case 2: if (stbTout > 30) {stbTout --;} break;
+        default: selectField = 0; break;        
+      }
     }
     myTimers.uiTout = LCD_UI_TOUT_LONG;
     ui.refresh = true;

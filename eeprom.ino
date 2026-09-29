@@ -36,3 +36,35 @@ void manageEEProm(void) {
     myTimers.eeprom = 5;
   }
 }
+
+
+/*
+  struct {
+    int16_t secondsDriftPerDay;
+  }time;
+  struct {
+    uint8_t hour;
+    uint8_t min;
+    uint8_t dow;  // bitmask as xdlmmgvs
+    uint8_t snoozeMin;  // snooze minutes
+  }alarm;
+  struct {
+    int16_t elevation;
+  }info;
+  struct {
+    char ssid[32];
+    char pwd[32];
+  }wifiNet;
+  struct {
+    uint8_t durationSec;
+    uint8_t perc;
+    uint8_t stbTout;
+  }backlight;
+*/
+
+void checkVariables(void)
+{
+  eeprom.data.backlight.durationSec = constrain(eeprom.data.backlight.durationSec, 5, 60);
+  eeprom.data.backlight.perc = constrain(eeprom.data.backlight.perc, 0, 100);
+  eeprom.data.backlight.stbToutSec = constrain(eeprom.data.backlight.stbToutSec, 30, 120);
+}

@@ -93,7 +93,7 @@ typedef struct {
   struct {
     uint8_t durationSec;
     uint8_t perc;
-    uint8_t stbTout;
+    uint8_t stbToutSec;
   }backlight;
 }data_s;
 
@@ -228,6 +228,7 @@ void loop() {
   startTimer();
   while (1) {
     manageEEProm();
+    checkVariables();
     checkTime();
     newDayStuff();
     readVBatt();
@@ -236,12 +237,11 @@ void loop() {
     playAlarmMusic();
     manageBacklight();
     interface();
-    
 #ifndef SERIAL_ENABLED
     if (myTimers.system == 0 && interfaceCanSleep() == 1 && alarmRinging() == 0) { break; }
 #endif
-
   }
+  backlightOff();
   stopTimer();
   //deInitPins();
   gotoLightSleep();
@@ -250,12 +250,9 @@ void loop() {
 extern "C" void esp_clk_slowclk_cal_set(uint32_t cal_val);
 
 void gotoLightSleep() {
-  digitalWrite(PIN_BACKLIGHT, HIGH);
   gpio_wakeup_enable((gpio_num_t)PIN_BTN1, GPIO_INTR_LOW_LEVEL);
   gpio_wakeup_enable((gpio_num_t)PIN_ENCODER_BTN, GPIO_INTR_LOW_LEVEL);
-
   switch (btnStatus.sideSwitch) {
-
     default:
     case 0:
       gpio_wakeup_enable((gpio_num_t)PIN_SWITCH_A, GPIO_INTR_LOW_LEVEL);
@@ -272,7 +269,6 @@ void gotoLightSleep() {
       gpio_wakeup_enable((gpio_num_t)PIN_SWITCH_B, GPIO_INTR_HIGH_LEVEL);
     break;
   }
-
   gpio_hold_en((gpio_num_t)PIN_3V3_SW);
   gpio_hold_en((gpio_num_t)PIN_EN_ADCVBAT);
   gpio_hold_en((gpio_num_t)PIN_BACKLIGHT);
