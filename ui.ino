@@ -55,7 +55,7 @@ void initLCD(void)
   u8g2.clearBuffer();  
   u8g2.setFontMode(1);
 
-  drawString(4, 38, 26, "CIAOO");
+  drawString(4, 38, 26, "!CLOCK!");
   u8g2.sendBuffer();
 }
 
@@ -72,6 +72,15 @@ void drawString(uint8_t x, uint8_t y, uint8_t size, const char *s)
   if (x>128 || y>64) return;
 
   switch(size) {
+    case 4:
+      u8g2.setFont(u8g2_font_4x6_mf);
+      break;
+    case 5:
+      u8g2.setFont(u8g2_font_5x8_mf);
+      break;
+    case 6:
+      u8g2.setFont(u8g2_font_6x12_mf);
+      break;    
     case 8:
       u8g2.setFont(u8g2_font_8x13_mf);
       break;
@@ -227,10 +236,10 @@ void displayMain(void)
   snprintf(string, sizeof(string), "%s %2d/%02d/%04d", wDays[sysTime.calendar.tm_wday], sysTime.calendar.tm_mday, sysTime.calendar.tm_mon + 1, sysTime.calendar.tm_year + 1900);
   drawString(2, 10, 8, string);
 
-  snprintf(string, sizeof(string), "%2.1f°C", ambData.temperature);
+  snprintf(string, sizeof(string), "%2.1f°C", ambData.bsec2.temperature);
   drawString(1, 50, 8, string);
   
-  snprintf(string, sizeof(string), "%2.0f%%", ambData.humidity);
+  snprintf(string, sizeof(string), "%2.0f%%", ambData.bsec2.humidity);
   drawString(1, 63, 8, string);
 
   const unsigned char* chosenIco = NULL;
@@ -322,10 +331,10 @@ void displayMenu(void) {
 
   for (int i = 0; i < maxVisible && (ui.menu.offset + i) < optionCount; i++) {
     int actualIndex = ui.menu.offset + i;
-    uint8_t y = 25 + (i * 13);
+    uint8_t y = 23 + (i * 13);
 
     if (ui.menu.index == actualIndex) {
-      u8g2.drawBox(2, y-9, 124, 11);
+      u8g2.drawBox(2, y-10, 124, 11);
       u8g2.setDrawColor(0);
     }
     drawString(8, y, 8, options[actualIndex]);
@@ -950,11 +959,22 @@ void displayRealtimeData()
   static uint8_t bklTout = 0;
   static uint8_t bklPerc = 0;
   static uint8_t stbTout = 0;
-  char string[30];
-  snprintf(string, sizeof(string), "REALTIME DATA");
-  drawString(1, 9, 8, string);
-  u8g2.drawHLine(1, 10, 128);
+  char string[50];
+  snprintf(string, sizeof(string), "DEBUG Vb:%1.2f %u", ambData.vBatt, millis()/1000);
+  drawString(0, 7, 6, string);
+  u8g2.drawHLine(0, 8, 128);
 
+  snprintf(string, sizeof(string),"Time:%ums", (int(ambData.bsec2.timestamp / INT64_C(1000000))));
+  drawString(0, 17, 6, string);
+  snprintf(string, sizeof(string),"%.1fC %.0f%% %.0fhPa", ambData.bsec2.temperature, ambData.bsec2.humidity, ambData.bsec2.pressure);
+  drawString(0, 25, 6, string);
+  snprintf(string, sizeof(string),"Stab:%d RunIn:%d Accu:%d", ambData.bsec2.status.stabilize, ambData.bsec2.status.runin, ambData.bsec2.status.accuracy);
+  drawString(0, 33, 6, string);
+  snprintf(string, sizeof(string),"eCO2:%.0fppm IAQ:%.0f", ambData.bsec2.debug.eCO2, ambData.bsec2.debug.IAQ);
+  drawString(0, 41, 6, string);
+  snprintf(string, sizeof(string),"bVOC:%.1fppm gas:%.1f%%", ambData.bsec2.debug.bVOC, ambData.bsec2.debug.gasPerc);
+  drawString(0, 49, 6, string);
+  
   backlightOn();
   myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
   

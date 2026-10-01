@@ -1,5 +1,6 @@
-#define PRESS_MINUTES_STORE 720 //12 hours
-#define PRESS_FETCH_TIME_S  60  // fetch the value every 60 seconds
+#define PRESS_HISTORY_HOURS  12 //12 hours
+#define PRESS_FETCH_TIME_S  300  // fetch the value every 5 minutes
+#define PRESS_MINUTES_STORE (PRESS_HISTORY_HOURS * PRESS_FETCH_TIME_S)
 
 typedef struct {
   float buf[PRESS_MINUTES_STORE];
@@ -97,7 +98,7 @@ void calcWeatherForecast(float delta3h, float delta12h)
     if (delta12h < thresh_midDown) {
       ambData.forecastVal = FORECAST_PIOGGIA_CONTINUA;      // Peggioramento esteso, pioggia diffusa
     } else {
-      if (ambData.humidity > 75.0) {
+      if (ambData.bsec2.humidity > 75.0) {
         ambData.forecastVal = FORECAST_PIOGGIA_IMMINENTE;   // Calo rapido, pioggia a breve termine
       } else {
         ambData.forecastVal = FORECAST_INSTABILE;           // Poco nuvoloso / Instabilità passeggera
@@ -106,7 +107,7 @@ void calcWeatherForecast(float delta3h, float delta12h)
   } else if (delta3h >= thresh_slowUp) {
     // 3. SCENARIO MIGLIORAMENTO (Pressione in aumento)
     if (delta12h > thresh_midUp) {
-      if (ambData.humidity < 40.0) {
+      if (ambData.bsec2.humidity < 40.0) {
         ambData.forecastVal = FORECAST_SOLE_SECCO;      // Soleggiato, asciutto, alta pressione
       } else {
         ambData.forecastVal = FORECAST_STABILE_SERENO;  // Bel tempo, stabile e senza variazioni
@@ -119,13 +120,13 @@ void calcWeatherForecast(float delta3h, float delta12h)
     if (delta12h <= thresh_midDown) {
       ambData.forecastVal = FORECAST_LENTO_PEGGIORAMENTO;   // Tendenza al lento peggioramento, nuvole
     } else if (delta12h >= thresh_midUp) {
-      if (ambData.humidity < 40.0) {
+      if (ambData.bsec2.humidity < 40.0) {
         ambData.forecastVal = FORECAST_SOLE_SECCO;
       } else {
         ambData.forecastVal = FORECAST_STABILE_SERENO;
       }
     } else {
-      if (ambData.humidity > 80.0) {
+      if (ambData.bsec2.humidity > 80.0) {
         if (eeprom.data.info.altitude < 500) {
           ambData.forecastVal = FORECAST_NEBBIA_FOSCHIA;
         } else {
