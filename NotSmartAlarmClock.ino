@@ -43,17 +43,24 @@ time_s sysTime;
 //#define SERIAL_ENABLED
 
 typedef struct {
-  uint8_t uiRefresh;
-  uint8_t btnTimerElapsed;
-  uint8_t uiTout;
-  uint8_t clock;
-  uint8_t sensor;
-  uint8_t buttons;
-  uint16_t system; // timer that decides when system goes to sleep
-  uint8_t eeprom;
-  uint8_t backlight;
-  uint8_t adc;
-  uint16_t BME68xMeasTimerElapsed;
+  // perpetual timers
+  struct {
+    uint8_t weatherDataFetch;
+  }noRst;
+  // reset these timers on boot
+  struct {
+    uint8_t uiRefresh;
+    uint8_t btnTimerElapsed;
+    uint8_t uiTout;
+    uint8_t clock;
+    uint8_t sensor;
+    uint8_t buttons;
+    uint16_t system; // timer that decides when system goes to sleep
+    uint8_t eeprom;
+    uint8_t backlight;
+    uint8_t adc;
+    uint16_t BME68xMeasTimerElapsed;
+  }rst;
 }myTimer_s;
 volatile myTimer_s myTimers;
 
@@ -72,6 +79,22 @@ typedef enum {
   ALARM_ON,
   ALARM_SNOOZE
 }alarmType_e;
+  
+
+typedef enum {
+  FORECAST_NONE,                    // dato non disponibile
+  FORECAST_STABILE_SERENO,          // Bel tempo, stabile e senza variazioni
+  FORECAST_SOLE_SECCO,              // Soleggiato, asciutto, alta pressione
+  FORECAST_VARIBILE_MIGLIORAMENTO,  // In miglioramento con schiarite
+  FORECAST_NUVOLOSO_STABILE,        // Nuvoloso ma stabile
+  FORECAST_NEBBIA_FOSCHIA,          // Possibile nebbia o foschia (alta umidità)
+  FORECAST_INSTABILE,               // Poco nuvoloso / Instabilità passeggera
+  FORECAST_LENTO_PEGGIORAMENTO,     // Tendenza al lento peggioramento, nuvole
+  FORECAST_PIOGGIA_CONTINUA,        // Peggioramento esteso, pioggia diffusa
+  FORECAST_PIOGGIA_IMMINENTE,       // Calo rapido, pioggia a breve termine
+  FORECAST_TEMPORALE_VENTO,         // Crollo rapido, forte maltempo e vento
+  FORECAST_ENUM_NOF
+}weatherForecast_e;
 
 typedef struct {
   struct {
@@ -84,7 +107,7 @@ typedef struct {
     uint8_t snoozeMin;  // snooze minutes
   }alarm;
   struct {
-    int16_t elevation;
+    int16_t altitude;
   }info;
   struct {
     char ssid[32];
@@ -101,8 +124,9 @@ typedef struct {
   float temperature;
   float humidity;
   float pressure;
-  float gas;
+  float iaq;
   float vBatt;
+  weatherForecast_e forecastVal;  // 0 no data, 1 stab
 }sensor_s;
 sensor_s ambData;
 
@@ -117,27 +141,28 @@ static void IRAM_ATTR TimerCallback(void* arg) {
   
   // set here 1ms timer
   readButtons();
-  if (myTimers.BME68xMeasTimerElapsed > 0) {myTimers.BME68xMeasTimerElapsed --;}
+  if (myTimers.rst.BME68xMeasTimerElapsed > 0) {myTimers.rst.BME68xMeasTimerElapsed --;}
 
 
   if (counter % 10 == 0) {
     // set here 10ms timers
-    if (myTimers.btnTimerElapsed > 0) { myTimers.btnTimerElapsed --; }
-    if (myTimers.uiRefresh > 0) {myTimers.uiRefresh --;}
+    if (myTimers.rst.btnTimerElapsed > 0) { myTimers.rst.btnTimerElapsed --; }
+    if (myTimers.rst.uiRefresh > 0) {myTimers.rst.uiRefresh --;}
 
     if (counter % 100 == 0) {
       // set here 100ms timers
-      if (myTimers.clock > 0) {myTimers.clock --;}
-      if (myTimers.system > 0) {myTimers.system --;}
+      if (myTimers.rst.clock > 0) {myTimers.rst.clock --;}
+      if (myTimers.rst.system > 0) {myTimers.rst.system --;}
 
       if (counter % 1000 == 0) {
         // set here 1second timer
-        if (myTimers.sensor > 0) {myTimers.sensor --;}
-        if (myTimers.uiTout > 0) {myTimers.uiTout --;}
-        if (myTimers.eeprom > 0) {myTimers.eeprom --;}  
-        if (myTimers.backlight > 0) {myTimers.backlight --;}
-        if (myTimers.adc > 0) { myTimers.adc --;}
-        if (myTimers.system > 0) {myTimers.system --;}
+        if (myTimers.rst.sensor > 0) {myTimers.rst.sensor --;}
+        if (myTimers.rst.uiTout > 0) {myTimers.rst.uiTout --;}
+        if (myTimers.rst.eeprom > 0) {myTimers.rst.eeprom --;}  
+        if (myTimers.rst.backlight > 0) {myTimers.rst.backlight --;}
+        if (myTimers.rst.adc > 0) { myTimers.rst.adc --;}
+        if (myTimers.rst.system > 0) {myTimers.rst.system --;}
+        //if (myTimers.noRst.weatherDataFetch > 0) {myTimers.noRst.weatherDataFetch --;}
         counter = 0;
       }
     }
@@ -199,11 +224,11 @@ void getWakeupCause(void)
 {
   esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
   if (cause == ESP_SLEEP_WAKEUP_TIMER) {
-    myTimers.system = SYSTEM_SLEEP_WAIT_FAST;
+    myTimers.rst.system = SYSTEM_SLEEP_WAIT_FAST;
   } else if (cause == ESP_SLEEP_WAKEUP_GPIO) {
-    myTimers.system = SYSTEM_SLEEP_WAIT_MID;
+    myTimers.rst.system = SYSTEM_SLEEP_WAIT_MID;
   } else {
-    myTimers.system = SYSTEM_SLEEP_WAIT_FAST;
+    myTimers.rst.system = SYSTEM_SLEEP_WAIT_FAST;
   }
 }
 void setup() {
@@ -217,7 +242,8 @@ void setup() {
 }
 
 void loop() {
-  memset((void*)&myTimers, 0, sizeof(myTimers));  initSensor();
+  memset((void*)&myTimers.rst, 0, sizeof(myTimers.rst));
+  initSensor();
 
   getWakeupCause();
 #ifdef SERIAL_ENABLED
@@ -236,9 +262,10 @@ void loop() {
     checkAlarm();
     playAlarmMusic();
     manageBacklight();
+    calcWeather();
     interface();
 #ifndef SERIAL_ENABLED
-    if (myTimers.system == 0 && interfaceCanSleep() == 1 && alarmRinging() == 0) { break; }
+    if (myTimers.rst.system == 0 && interfaceCanSleep() == 1 && alarmRinging() == 0) { break; }
 #endif
   }
   backlightOff();

@@ -1,7 +1,7 @@
 const float ADC_RESISTOR = ((10.0 + 24.0) / 24.0);
 
 void readVBatt() {
-  if (myTimers.adc == 0) {
+  if (myTimers.rst.adc == 0) {
     digitalWrite(PIN_EN_ADCVBAT, HIGH);
     //delay(1);
     //int rawValue = analogRead(PIN_ADC_VBAT);
@@ -12,6 +12,6 @@ void readVBatt() {
       ambData.vBatt = v_batt;
     }
     digitalWrite(PIN_EN_ADCVBAT, LOW);
-    myTimers.adc = 1;
+    myTimers.rst.adc = 1;
   }
 }

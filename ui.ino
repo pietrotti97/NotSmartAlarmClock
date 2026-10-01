@@ -6,21 +6,22 @@
 U8G2_ST7567_ENH_DG128064I_F_HW_I2C u8g2(U8G2_R2, I2C_SCL, I2C_SDA, U8X8_PIN_NONE); //U8G2_ST7567_JLX12864_F_HW_I2C
 
 typedef enum{
-  UI_HOME,          // home screen
-  UI_MENU,          // the main menu screen with options
-  UI_SET_TIME,      // set time screen
-  UI_SET_ALARM,     // set alarm screen
-  UI_SET_ELEVATION, // set elevation screen
-  UI_SET_SNOOZETIME, // set elevation screen
-  UI_SET_WIFI, // set elevation screen
-  UI_SET_DUMMY, // set elevation screen
-  UI_SET_SECONDSDRIFT, // set drift per day in seconds
-  UI_SET_BACKLIGHT,
+  UI_HOME,              // home screen
+  UI_MENU,              // the main menu screen with options
+  UI_SET_TIME,          // set time screen
+  UI_SET_ALARM,         // set alarm screen
+  UI_SET_ELEVATION,     // set elevation screen
+  UI_SET_SNOOZETIME,    // set elevation screen
+  UI_SET_WIFI,          // set elevation screen
+  UI_SET_DUMMY,         // set elevation screen
+  UI_SET_SECONDSDRIFT,  // set drift per day in seconds
+  UI_SET_BACKLIGHT,     // set backlight intensity, timeout and system sleep
+  UI_SET_REALTIMEDATA,  // view realtime data from sensors
   UI_NOF
 }uiStates_e;
 
-const char* options[] = { "Set Time", "Set Alarm", "Elevation", "Back", "Snooze Time", "WiFi", "Inculati", "Set Drift/day", "Backlight"};
-const uint8_t optionCount = 9;
+const char* options[] = { "Set Time", "Set Alarm", "Altitude", "Back", "Snooze Time", "WiFi", "Inculati", "Set Drift/day", "Backlight", "RealTime data"};
+const uint8_t optionCount = UI_NOF -1;
 
 typedef struct {
   uiStates_e position;
@@ -154,7 +155,7 @@ void draw(const char *s, uint8_t symbol, int degree)
 
 void interface() 
 {
-  if (myTimers.btnTimerElapsed == 0) {
+  if (myTimers.rst.btnTimerElapsed == 0) {
     if (btnStatus.topButton == 1) {
       logPrintf("\n\rTop Btn click");
       ui.action.topBtn = 1;
@@ -176,10 +177,10 @@ void interface()
       logPrintf("\n\rencoder Steps: %d", ui.action.encSteps);
       btnStatus.encoder.steps = 0;
     }
-    myTimers.btnTimerElapsed = 1;
+    myTimers.rst.btnTimerElapsed = 1;
   }
 
-  if (myTimers.uiRefresh == 0) {
+  if (myTimers.rst.uiRefresh == 0) {
     u8g2.clearBuffer();  
     u8g2.setFontMode(1);
     switch(ui.position) {
@@ -193,21 +194,22 @@ void interface()
       case UI_SET_DUMMY: displaySetDummy(); break;
       case UI_SET_SECONDSDRIFT: displaySetSecondsdrift(); break;
       case UI_SET_BACKLIGHT: displaySetBacklight(); break;
+      case UI_SET_REALTIMEDATA: displayRealtimeData(); break;
       default: ui.position = UI_HOME; break;
     }
     u8g2.sendBuffer();
     if (ui.position == UI_HOME) {
-      myTimers.uiRefresh = 5;
+      myTimers.rst.uiRefresh = 5;
     } else {
-      if (myTimers.uiTout == 0) {
+      if (myTimers.rst.uiTout == 0) {
         ui.position = UI_HOME;
         ui.refresh = true;
       }
       if(ui.refresh == 1) {
         ui.refresh = true;
-        myTimers.uiRefresh = 0;
+        myTimers.rst.uiRefresh = 0;
       } else {
-        myTimers.uiRefresh = 1;
+        myTimers.rst.uiRefresh = 1;
       }
     }
   }
@@ -231,9 +233,31 @@ void displayMain(void)
   snprintf(string, sizeof(string), "%2.0f%%", ambData.humidity);
   drawString(1, 63, 8, string);
 
-  //snprintf(string, sizeof(string), "P%4.0f,G%2.0f,V%1.1f",ambData.pressure, ambData.gas, ambData.vBatt);
-  
-
+  const unsigned char* chosenIco = NULL;
+  switch(ambData.forecastVal) {
+    case FORECAST_STABILE_SERENO: chosenIco = imgicons8_sole_16; break;                       // Bel tempo, stabile e senza variazioni
+    case FORECAST_SOLE_SECCO: chosenIco = imgicons8_estate_16; break;                         // Soleggiato, asciutto, alta pressione
+    case FORECAST_VARIBILE_MIGLIORAMENTO: chosenIco = imgicons8_partly_cloudy_day_16; break;  // In miglioramento con schiarite
+    case FORECAST_NUVOLOSO_STABILE: chosenIco = imgicons8_nuvola_tratteggiata_16; break;      // Nuvoloso ma stabile
+    
+    case FORECAST_NEBBIA_FOSCHIA:                                                             // Possibile nebbia o foschia (alta umidità)
+      if ((sysTime.calendar.tm_hour >=6) && (sysTime.calendar.tm_hour <= 21))
+        chosenIco = imgicons8_giorno_nebbioso_16;
+        else
+          chosenIco = imgicons8_notte_nebbiosa_16;
+      break;
+    case FORECAST_INSTABILE: chosenIco = imgicons8_sun_rain_cloud_16; break;                  // Poco nuvoloso / Instabilità passeggera
+    case FORECAST_LENTO_PEGGIORAMENTO: chosenIco = imgicons8_cloud_16; break;                 // Tendenza al lento peggioramento, nuvole
+    case FORECAST_PIOGGIA_CONTINUA: chosenIco = imgicons8_heavy_rain_16; break;               // Peggioramento esteso, pioggia diffusa
+    case FORECAST_PIOGGIA_IMMINENTE: chosenIco = imgicons8_light_rain_16; break;              // Calo rapido, pioggia a breve termine
+    case FORECAST_TEMPORALE_VENTO: chosenIco = imgicons8_cloud_lightning_16; break;           // Crollo rapido, forte maltempo e vento
+    default:                                                                                  // not enough data
+    case FORECAST_NONE:
+    case FORECAST_ENUM_NOF:
+    chosenIco = imgicons8_sync_16;
+    break;
+  }
+  u8g2.drawXBMP(60, 39, 16, 16, chosenIco);
   ui.refresh = false;
 
   if (ui.action.topBtn == BTN_PRESSED) {
@@ -249,8 +273,8 @@ void displayMain(void)
     ui.position = UI_MENU;
     ui.action.encBtn = BTN_RELEASED;
     ui.refresh = true;
-    myTimers.uiRefresh = 0;
-    myTimers.uiTout = LCD_UI_TOUT_SHORT;
+    myTimers.rst.uiRefresh = 0;
+    myTimers.rst.uiTout = LCD_UI_TOUT_SHORT;
   }
 
   if (ui.action.encSteps != 0) {
@@ -325,11 +349,12 @@ void displayMenu(void) {
       case 6: ui.position = UI_SET_DUMMY; break;
       case 7: ui.position = UI_SET_SECONDSDRIFT; break;
       case 8: ui.position = UI_SET_BACKLIGHT; break;
+      case 9: ui.position = UI_SET_REALTIMEDATA; break; 
       default: ui.position = UI_MENU; break;
     }
     ui.action.encBtn = BTN_RELEASED;
     ui.refresh = true;
-    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
   } 
 
   if (ui.action.encSteps != 0) {
@@ -390,13 +415,13 @@ void displaySetTime() {
     if (selectField > 5) {
       selectField = 0;
       // back to menu
-      setRtcTime(calendar.tm_hour, calendar.tm_min, calendar.tm_sec, calendar.tm_mday, calendar.tm_mon, calendar.tm_year+1900);
+      setRtcTime(calendar.tm_hour, calendar.tm_min, calendar.tm_sec, calendar.tm_mday, calendar.tm_mon+1, calendar.tm_year+1900);
       onEnter = 0;
       ui.position = UI_MENU;
     }
     ui.action.encBtn = BTN_RELEASED;
     ui.refresh = true;
-    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
   } 
 
   if (ui.action.encSteps != 0) {
@@ -477,7 +502,7 @@ void displaySetTime() {
         break;
       }
     }
-    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
     ui.refresh = true;
   }
 }
@@ -553,7 +578,7 @@ void displaySetAlarm() {
     }
     ui.action.encBtn = BTN_RELEASED;
     ui.refresh = true;
-    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
   } 
 
   if (ui.action.encSteps != 0) {
@@ -610,7 +635,7 @@ void displaySetAlarm() {
         break;
       }
     }
-    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
     ui.refresh = true;
   }
 }
@@ -619,12 +644,12 @@ void displaySetElevation() {
   static bool onEnter = false;
   static int16_t currentElevation = 0;
   char string[30];
-  snprintf(string, sizeof(string), "ELEVATION SET");
+  snprintf(string, sizeof(string), "ALTITUDE SET");
   drawString(13, 9, 8, string);
   u8g2.drawHLine(1, 10, 128);
 
   if (onEnter == false) {
-    currentElevation = eeprom.data.info.elevation;
+    currentElevation = eeprom.data.info.altitude;
     onEnter = true;
   }
 
@@ -641,9 +666,9 @@ void displaySetElevation() {
     ui.refresh = true;
   } 
   if (ui.action.encBtn == BTN_PRESSED) {
-    eeprom.data.info.elevation = currentElevation;
+    eeprom.data.info.altitude = currentElevation;
     ui.position = UI_MENU;
-    myTimers.uiTout = LCD_UI_TOUT_SHORT;
+    myTimers.rst.uiTout = LCD_UI_TOUT_SHORT;
     onEnter = false;
     ui.action.encBtn = BTN_RELEASED;
     ui.refresh = true;
@@ -660,7 +685,7 @@ void displaySetElevation() {
       // decrease number
       currentElevation --;
     }
-    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
     ui.refresh = true;
   }
 }
@@ -679,7 +704,7 @@ void displaySetSnoozetime(void)
     onEnter = true;
   }
 
-  snprintf(string, sizeof(string),"%2.0u min", currVal);
+  snprintf(string, sizeof(string),"%2u min", currVal);
   drawString(10, 45, 26, string);
 
 
@@ -693,7 +718,7 @@ void displaySetSnoozetime(void)
   if (ui.action.encBtn == BTN_PRESSED) {
     eeprom.data.alarm.snoozeMin = currVal;
     ui.position = UI_MENU;
-    myTimers.uiTout = LCD_UI_TOUT_SHORT;
+    myTimers.rst.uiTout = LCD_UI_TOUT_SHORT;
     onEnter = false;
     ui.action.encBtn = BTN_RELEASED;
     ui.refresh = true;
@@ -711,19 +736,57 @@ void displaySetSnoozetime(void)
       if (currVal >=2)
         currVal --;
     }
-    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
     ui.refresh = true;
   }
 }
 
 void displaySetWiFi(void)
 {
+  static bool onEnter = false;
+  static uint8_t selectField = 0;
+  static uint8_t bklTout = 0;
+  static uint8_t bklPerc = 0;
+  static uint8_t stbTout = 0;
+  char string[30];
+  snprintf(string, sizeof(string), "WIFI Set");
+  drawString(1, 9, 8, string);
+  u8g2.drawHLine(1, 10, 128);
 
+  backlightOn();
+  myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+  
+  if (ui.action.encBtn == BTN_PRESSED) {
+    ui.position = UI_MENU;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+    ui.action.encBtn = BTN_RELEASED;
+    ui.refresh = true;
+    backlightOff();
+  }
 }
 
 void displaySetDummy(void)
 {
+  static bool onEnter = false;
+  static uint8_t selectField = 0;
+  static uint8_t bklTout = 0;
+  static uint8_t bklPerc = 0;
+  static uint8_t stbTout = 0;
+  char string[30];
+  snprintf(string, sizeof(string), "DUMMY SCREEN");
+  drawString(1, 9, 8, string);
+  u8g2.drawHLine(1, 10, 128);
 
+  backlightOn();
+  myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+  
+  if (ui.action.encBtn == BTN_PRESSED) {
+    ui.position = UI_MENU;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+    ui.action.encBtn = BTN_RELEASED;
+    ui.refresh = true;
+    backlightOff();
+  }
 }
 
 void displaySetSecondsdrift(void) 
@@ -759,7 +822,7 @@ void displaySetSecondsdrift(void)
   if (ui.action.encBtn == BTN_PRESSED) {
     eeprom.data.time.secondsDriftPerDay = currVal;
     ui.position = UI_MENU;
-    myTimers.uiTout = LCD_UI_TOUT_SHORT;
+    myTimers.rst.uiTout = LCD_UI_TOUT_SHORT;
     onEnter = false;
     ui.action.encBtn = BTN_RELEASED;
     ui.refresh = true;
@@ -777,7 +840,7 @@ void displaySetSecondsdrift(void)
       if (currVal >-999)
         currVal --;
     }
-    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
     ui.refresh = true;
   }
 }
@@ -840,7 +903,7 @@ void displaySetBacklight(void)
       ui.position = UI_MENU;
       backlightOff();
     }
-    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
     ui.action.encBtn = BTN_RELEASED;
     ui.refresh = true;
   } 
@@ -875,7 +938,31 @@ void displaySetBacklight(void)
         default: selectField = 0; break;        
       }
     }
-    myTimers.uiTout = LCD_UI_TOUT_LONG;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
     ui.refresh = true;
+  }
+}
+
+void displayRealtimeData() 
+{
+  static bool onEnter = false;
+  static uint8_t selectField = 0;
+  static uint8_t bklTout = 0;
+  static uint8_t bklPerc = 0;
+  static uint8_t stbTout = 0;
+  char string[30];
+  snprintf(string, sizeof(string), "REALTIME DATA");
+  drawString(1, 9, 8, string);
+  u8g2.drawHLine(1, 10, 128);
+
+  backlightOn();
+  myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+  
+  if (ui.action.encBtn == BTN_PRESSED) {
+    ui.position = UI_MENU;
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+    ui.action.encBtn = BTN_RELEASED;
+    ui.refresh = true;
+    backlightOff();
   }
 }

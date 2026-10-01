@@ -34,7 +34,7 @@ void setRtcTime(uint8_t hour, uint8_t min, uint8_t sec, uint8_t day, uint8_t mon
 }
 
 void checkTime() {
-  if (myTimers.clock == 0) {
+  if (myTimers.rst.clock == 0) {
     uint8_t currDay = sysTime.calendar.tm_mday;
     time_t currTime;
     time(&currTime);
@@ -42,7 +42,7 @@ void checkTime() {
     if (currDay != sysTime.calendar.tm_mday) {
       sysTime.newDay = 1;
     }
-    myTimers.clock = 1;
+    myTimers.rst.clock = 1;
   }
 }
 

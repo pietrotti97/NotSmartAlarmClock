@@ -12,7 +12,7 @@ void setBacklight(bool state, uint8_t perc, uint8_t alwaysOn) {
   if (state == true) {
     int pwmVal = map(perc, 0, 100, 255, 0);
     ledcWrite(PIN_BACKLIGHT, pwmVal);
-    myTimers.backlight = eeprom.data.backlight.durationSec;
+    myTimers.rst.backlight = eeprom.data.backlight.durationSec;
     dataBkl.alwaysOn = alwaysOn;
   } else {
     ledcWrite(PIN_BACKLIGHT, 255);
@@ -24,7 +24,7 @@ void backlightOn(void)
 {
   eeprom.data.backlight.perc = constrain(eeprom.data.backlight.perc, 0, 100);
   int pwmVal = map(eeprom.data.backlight.perc, 0, 100, 255, 0);
-  myTimers.backlight = eeprom.data.backlight.durationSec;
+  myTimers.rst.backlight = eeprom.data.backlight.durationSec;
   ledcWrite(PIN_BACKLIGHT, pwmVal);
 }
 
@@ -35,7 +35,7 @@ void backlightOff(void)
 }
 
 void manageBacklight(void) {
-  if(dataBkl.alwaysOn == 0 && myTimers.backlight == 0) {
+  if(dataBkl.alwaysOn == 0 && myTimers.rst.backlight == 0) {
     ledcWrite(PIN_BACKLIGHT, 255);
   }
 }

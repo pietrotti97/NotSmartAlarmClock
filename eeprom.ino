@@ -21,7 +21,7 @@ void manageEEProm(void) {
       memset(&eeprom, 0, sizeof(eepromData_s));
     } 
   }
-  if (myTimers.eeprom == 0) {
+  if (myTimers.rst.eeprom == 0) {
     uint16_t currCRC = crc16_update((uint8_t *)&eeprom.data, sizeof(data_s));
     if (currCRC != eeprom.crc16) {
       logPrintln("CurrCRC: ");
@@ -33,34 +33,9 @@ void manageEEProm(void) {
       myPreferences.putBytes(EEPROM_KEY, &eeprom, sizeof(eepromData_s));
       myPreferences.end();
     }
-    myTimers.eeprom = 5;
+    myTimers.rst.eeprom = 5;
   }
 }
-
-
-/*
-  struct {
-    int16_t secondsDriftPerDay;
-  }time;
-  struct {
-    uint8_t hour;
-    uint8_t min;
-    uint8_t dow;  // bitmask as xdlmmgvs
-    uint8_t snoozeMin;  // snooze minutes
-  }alarm;
-  struct {
-    int16_t elevation;
-  }info;
-  struct {
-    char ssid[32];
-    char pwd[32];
-  }wifiNet;
-  struct {
-    uint8_t durationSec;
-    uint8_t perc;
-    uint8_t stbTout;
-  }backlight;
-*/
 
 void checkVariables(void)
 {
