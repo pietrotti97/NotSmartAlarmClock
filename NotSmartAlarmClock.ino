@@ -6,6 +6,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <Wire.h>
+#include "bsec2.h"
 
 extern "C" {
   #include "soc/rtc.h"
@@ -121,14 +122,32 @@ typedef struct {
 }data_s;
 
 typedef struct {
-  float temperature;
-  float humidity;
-  float pressure;
-  float iaq;
   float vBatt;
   weatherForecast_e forecastVal;  // 0 no data, 1 stab
+  struct {
+    uint64_t timestamp; // ms
+    float temperature;  // C
+    float humidity;     // %rh
+    float pressure;     // Pa
+    float eCO2;         // ppm
+    float bVOC;         // ppm
+    float IAQ;          // na
+    float gasPerc;      // %    
+    struct {
+      uint8_t stabilize;
+      uint8_t runin;
+      uint8_t accuracy;
+    }status;
+    struct {
+    float eCO2;         // ppm
+    float bVOC;         // ppm
+    float IAQ;          // na
+    float gasPerc;      // %    
+    }debug;
+  }bsec2;
 }sensor_s;
 sensor_s ambData;
+
 
 typedef struct {
   data_s data;
@@ -243,7 +262,7 @@ void setup() {
 
 void loop() {
   memset((void*)&myTimers.rst, 0, sizeof(myTimers.rst));
-  initSensor();
+  //initSensorFunc();
 
   getWakeupCause();
 #ifdef SERIAL_ENABLED
@@ -258,7 +277,7 @@ void loop() {
     checkTime();
     newDayStuff();
     readVBatt();
-    readSensor();
+    readSensorFunc();
     checkAlarm();
     playAlarmMusic();
     manageBacklight();
