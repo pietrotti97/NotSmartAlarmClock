@@ -26,7 +26,28 @@ extern "C" {
 #define I2C_SDA          8
 #define I2C_SCL          9
 
+#define PRESS_HISTORY_HOURS  12 //12 hours
+#define PRESS_FETCH_TIME_MIN 5  // fetch the value every 5 minutes
+#define PRESS_BUFFER_SIZE ((PRESS_HISTORY_HOURS * 60) / PRESS_FETCH_TIME_MIN)
+
+
+#define RTC_KEY 0xB00B1EE5
+typedef struct {
+  struct {  
+    uint32_t magic;
+    uint8_t state[BSEC_MAX_STATE_BLOB_SIZE];
+  }bsec2;
+  struct {
+    uint32_t magic;
+    float buf[PRESS_BUFFER_SIZE];
+    uint16_t count;
+    bool full;
+  }forecast;
+} BackupDataRTC;
+
 RTC_NOINIT_ATTR uint32_t rtcInit;
+RTC_NOINIT_ATTR BackupDataRTC rtcBkp;
+
 Preferences myPreferences;
 #define EEPROM_NAMESPACE "tableClock"
 #define EEPROM_KEY       "settings"
@@ -97,6 +118,18 @@ typedef enum {
   FORECAST_ENUM_NOF
 }weatherForecast_e;
 
+typedef enum {
+  AIR_UNKNOWN,
+  AIR_EXCELLENT,
+  AIR_GOOD,
+  AIR_FAIR,
+  AIR_POOR,
+  AIR_BAD,
+  AIR_VERY_BAD,
+  AIR_EXTREMELY_BAD,
+  AIR_NOF
+}airQuality_e;
+
 typedef struct {
   struct {
     int16_t secondsDriftPerDay;
@@ -124,6 +157,7 @@ typedef struct {
 typedef struct {
   float vBatt;
   weatherForecast_e forecastVal;  // 0 no data, 1 stab
+  airQuality_e airQuality;
   struct {
     uint64_t timestamp; // ms
     float temperature;  // C
@@ -137,6 +171,7 @@ typedef struct {
       uint8_t stabilize;
       uint8_t runin;
       uint8_t accuracy;
+      uint16_t count;
     }status;
     struct {
     float eCO2;         // ppm
