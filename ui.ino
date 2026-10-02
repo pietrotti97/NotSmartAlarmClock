@@ -20,7 +20,7 @@ typedef enum{
   UI_NOF
 }uiStates_e;
 
-const char* options[] = { "Set Time", "Set Alarm", "Altitude", "Back", "Snooze Time", "WiFi", "Inculati", "Set Drift/day", "Backlight", "RealTime data"};
+const char* options[] = { "Set Time", "Set Alarm", "Altitude", "Back", "Snooze Time", "WiFi", "Dummy", "Set Drift/day", "Backlight", "RealTime data"};
 const uint8_t optionCount = UI_NOF -1;
 
 typedef struct {
@@ -234,13 +234,13 @@ void displayMain(void)
   snprintf(string, sizeof(string), "%02d:%02d.%02d", sysTime.calendar.tm_hour, sysTime.calendar.tm_min, sysTime.calendar.tm_sec);
   drawString(4, 38, 26, string);
   snprintf(string, sizeof(string), "%s %2d/%02d/%04d", wDays[sysTime.calendar.tm_wday], sysTime.calendar.tm_mday, sysTime.calendar.tm_mon + 1, sysTime.calendar.tm_year + 1900);
-  drawString(2, 10, 8, string);
+  drawString(5, 10, 8, string);
 
   snprintf(string, sizeof(string), "%2.1f°C", ambData.bsec2.temperature);
-  drawString(1, 50, 8, string);
+  drawString(0, 50, 8, string);
   
   snprintf(string, sizeof(string), "%2.0f%%", ambData.bsec2.humidity);
-  drawString(1, 63, 8, string);
+  drawString(0, 63, 8, string);
 
   const unsigned char* chosenIco = NULL;
   switch(ambData.forecastVal) {
@@ -267,6 +267,38 @@ void displayMain(void)
     break;
   }
   u8g2.drawXBMP(60, 39, 16, 16, chosenIco);
+
+
+  switch (ambData.airQuality) {
+    case AIR_EXCELLENT:
+          snprintf(string, sizeof(string), "AIR :))!");
+      break;
+    case AIR_GOOD:
+          snprintf(string, sizeof(string), "AIR :))");
+      break;
+    case AIR_FAIR:
+          snprintf(string, sizeof(string), "AIR :|");
+      break;
+    case AIR_POOR:
+          snprintf(string, sizeof(string), "AIR :(");
+      break;
+    case AIR_BAD:
+          snprintf(string, sizeof(string), "AIR :((");
+      break;
+    case AIR_VERY_BAD:
+          snprintf(string, sizeof(string), "AIR :((!");
+      break;
+    case AIR_EXTREMELY_BAD:
+          snprintf(string, sizeof(string), "!SCAPPA!");
+      break;
+    case AIR_UNKNOWN:
+    case AIR_NOF:
+    default:
+      snprintf(string, sizeof(string), "AIR NONE");
+      break;
+  }
+  
+  drawString(40, 63, 8, string);
   ui.refresh = false;
 
   if (ui.action.topBtn == BTN_PRESSED) {
@@ -962,19 +994,23 @@ void displayRealtimeData()
   char string[50];
   snprintf(string, sizeof(string), "DEBUG Vb:%1.2f %u", ambData.vBatt, millis()/1000);
   drawString(0, 7, 6, string);
-  u8g2.drawHLine(0, 8, 128);
+  //u8g2.drawHLine(0, 8, 128);
 
   snprintf(string, sizeof(string),"Time:%ums", (int(ambData.bsec2.timestamp / INT64_C(1000000))));
-  drawString(0, 17, 6, string);
+  drawString(0, 16, 6, string);
   snprintf(string, sizeof(string),"%.1fC %.0f%% %.0fhPa", ambData.bsec2.temperature, ambData.bsec2.humidity, ambData.bsec2.pressure);
-  drawString(0, 25, 6, string);
+  drawString(0, 24, 6, string);
   snprintf(string, sizeof(string),"Stab:%d RunIn:%d Accu:%d", ambData.bsec2.status.stabilize, ambData.bsec2.status.runin, ambData.bsec2.status.accuracy);
-  drawString(0, 33, 6, string);
+  drawString(0, 32, 6, string);
   snprintf(string, sizeof(string),"eCO2:%.0fppm IAQ:%.0f", ambData.bsec2.debug.eCO2, ambData.bsec2.debug.IAQ);
-  drawString(0, 41, 6, string);
-  snprintf(string, sizeof(string),"bVOC:%.1fppm gas:%.1f%%", ambData.bsec2.debug.bVOC, ambData.bsec2.debug.gasPerc);
-  drawString(0, 49, 6, string);
-  
+  drawString(0, 40, 6, string);
+  snprintf(string, sizeof(string),"bVOC:%.1fppm n:%d", ambData.bsec2.debug.bVOC, ambData.bsec2.status.count);
+  drawString(0, 48, 6, string);
+  snprintf(string, sizeof(string),"gas:%.1f%%", ambData.bsec2.debug.gasPerc);
+  drawString(0, 56, 6, string);
+  snprintf(string, sizeof(string),"Forecast n:%d full:%d", rtcBkp.forecast.count, rtcBkp.forecast.full);
+  drawString(0, 64, 6, string);
+
   backlightOn();
   myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
   

@@ -1,6 +1,3 @@
-#define RTC_KEY 0xB00B1EE5
-
-
 void resetRtcTime() {
   if (rtcInit != RTC_KEY) {
     rtcInit = RTC_KEY;

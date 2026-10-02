@@ -144,6 +144,7 @@ void readSensor(void)
 void initSensorBSEC2(void)
 { 
   if (sensData.initOk == true) { return; }
+  ambData.bsec2.status.count = 0;
 
   bsecSensor sensorList[] = {
     BSEC_OUTPUT_RAW_TEMPERATURE,
@@ -171,6 +172,21 @@ void initSensorBSEC2(void)
     sensData.initOk = false;
     return;
   }
+
+  if(rtcBkp.bsec2.magic == RTC_KEY) {
+    if (envSensor.setState(rtcBkp.bsec2.state)) {
+      logPrintf("\n\rBME688 - Restored calibration data!");    
+    } else {
+      memset(rtcBkp.bsec2.state, 0, sizeof(rtcBkp.bsec2.state));
+      rtcBkp.bsec2.magic = 0;
+      logPrintf("\n\rBME688 - ERROR Restoring calibration data!");
+    }
+  } else {
+    memset(rtcBkp.bsec2.state, 0, sizeof(rtcBkp.bsec2.state));
+    rtcBkp.bsec2.magic = 0;
+    logPrintf("\n\rBME688 - Calibration data Lost!");
+  }
+
 
 	//if (!envSensor.setConfig(bsec_config)) { 
   //  logPrintf("\n\rError Bsec Config, ");
@@ -213,9 +229,6 @@ void dataCallbackBSEC2(const bme68xData data, const bsecOutputs outputs, Bsec2 b
     return;
   }
   ambData.bsec2.timestamp = newTimestamp;
-  uint8_t stabilize = 0;
-  uint8_t accuracy = 0;
-  uint8_t runin = 0;
 
   for (uint8_t i = 0; i < outputs.nOutputs; i++) {
       const bsecData output  = outputs.output[i];
@@ -253,7 +266,7 @@ void dataCallbackBSEC2(const bme68xData data, const bsecOutputs outputs, Bsec2 b
         case BSEC_OUTPUT_IAQ:
           logPrintf("IAQ: %.2f (Acc: %d), ", output.signal, output.accuracy);
           ambData.bsec2.debug.IAQ = output.signal;
-          accuracy = output.accuracy;
+          ambData.bsec2.status.accuracy = output.accuracy;
         break;
         case BSEC_OUTPUT_CO2_EQUIVALENT:
           logPrintf("eCO2: %.2f ppm, ", output.signal);
@@ -272,11 +285,11 @@ void dataCallbackBSEC2(const bme68xData data, const bsecOutputs outputs, Bsec2 b
         break;
         case BSEC_OUTPUT_STABILIZATION_STATUS:
           logPrintf("Stabilize: %.0f, ", output.signal);
-          stabilize = output.signal;
+          ambData.bsec2.status.stabilize = output.signal;
         break;
         case BSEC_OUTPUT_RUN_IN_STATUS:
           logPrintf("RunIn: %.0f, ", output.signal);
-          runin = output.signal;
+          ambData.bsec2.status.runin = output.signal;
         break;
 
         case BSEC_OUTPUT_GAS_ESTIMATE_1:
@@ -309,7 +322,7 @@ void dataCallbackBSEC2(const bme68xData data, const bsecOutputs outputs, Bsec2 b
             break;
       }
   }
-  if ((stabilize) && (runin) && (accuracy >= 2)) {
+  if ((ambData.bsec2.status.stabilize) && (ambData.bsec2.status.runin) && (ambData.bsec2.status.accuracy >= 2)) {
     ambData.bsec2.eCO2 = ambData.bsec2.debug.eCO2;
     ambData.bsec2.bVOC = ambData.bsec2.debug.bVOC;
     ambData.bsec2.IAQ = ambData.bsec2.debug.IAQ;
@@ -320,12 +333,17 @@ void dataCallbackBSEC2(const bme68xData data, const bsecOutputs outputs, Bsec2 b
     ambData.bsec2.IAQ = -999.0f;
     ambData.bsec2.gasPerc = -999.0f;
   }
-  ambData.bsec2.status.stabilize = stabilize;
-  ambData.bsec2.status.runin = runin;
-  ambData.bsec2.status.accuracy = accuracy;
+  ambData.bsec2.status.count ++;
+  
   pressureAddVal(ambData.bsec2.pressure, ambData.bsec2.temperature);
+  if(bsec.getState(rtcBkp.bsec2.state)) {
+    rtcBkp.bsec2.magic = RTC_KEY;
+    logPrintf("\n\rBME688 - Saved State in RTC");
+  } else {
+    rtcBkp.bsec2.magic = RTC_KEY;
+    logPrintf("\n\rBME688 - ERROR Saving State");
+  }
 }
-
 
 void checkBsecStatus(Bsec2 bsec)
 {
