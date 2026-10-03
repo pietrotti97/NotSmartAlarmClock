@@ -79,6 +79,9 @@ void calcWeather(void)
 void calcWeatherForecast(float delta3h, float delta12h) 
 {
   float altCorr = 1.0 - (eeprom.data.info.altitude * 0.00011);
+  float tempStandardK = 288.15 - (0.0065 * eeprom.data.info.altitude);
+  float currPressure = ambData.bsec2.pressure / pow(1.0 - (0.0065 * eeprom.data.info.altitude) / tempStandardK, 5.255);
+
   if (altCorr < 0.7) altCorr = 0.7;
 
   float thresh_fastDown = -3.0 * altCorr;
@@ -95,10 +98,12 @@ void calcWeatherForecast(float delta3h, float delta12h)
     if (delta12h < thresh_midDown) {
       ambData.forecastVal = FORECAST_PIOGGIA_CONTINUA;      // Peggioramento esteso, pioggia diffusa
     } else {
-      if (ambData.bsec2.humidity > 75.0) {
+      if (currPressure > 1016.0 && ambData.bsec2.humidity < 60.0) {
+        ambData.forecastVal = FORECAST_STABILE_SERENO; 
+      } else if (ambData.bsec2.humidity > 75.0) {
         ambData.forecastVal = FORECAST_PIOGGIA_IMMINENTE;   // Calo rapido, pioggia a breve termine
-      } else {
-        ambData.forecastVal = FORECAST_INSTABILE;           // Poco nuvoloso / Instabilità passeggera
+      } else {  
+        ambData.forecastVal = FORECAST_INSTABILE;             // Poco nuvoloso / Instabilità passeggera
       }
     }
   } else if (delta3h >= thresh_slowUp) {
@@ -123,14 +128,30 @@ void calcWeatherForecast(float delta3h, float delta12h)
         ambData.forecastVal = FORECAST_STABILE_SERENO;
       }
     } else {
-      if (ambData.bsec2.humidity > 80.0) {
-        if (eeprom.data.info.altitude < 500) {
-          ambData.forecastVal = FORECAST_NEBBIA_FOSCHIA;
+      if (currPressure > 1016.0) {
+        // Se la pressione è stabilmente alta, è sereno a prescindere (salvo umidità desertica)
+        if (ambData.bsec2.humidity < 45.0) {
+          ambData.forecastVal = FORECAST_SOLE_SECCO;
+        } else {
+          ambData.forecastVal = FORECAST_STABILE_SERENO;
+        }
+         
+      } 
+      else if (currPressure < 1008.0) {
+        // Se la pressione è stabilmente bassa, il cielo è grigio e nuvoloso
+        ambData.forecastVal = FORECAST_NUVOLOSO_STABILE;
+      } else {
+        if (ambData.bsec2.humidity > 80.0) {
+          if (eeprom.data.info.altitude < 500) {
+            ambData.forecastVal = FORECAST_NEBBIA_FOSCHIA;
+          } else {
+            ambData.forecastVal = FORECAST_NUVOLOSO_STABILE;
+          }
+        } else if (ambData.bsec2.humidity < 55.0) {
+            ambData.forecastVal = FORECAST_STABILE_SERENO;
         } else {
           ambData.forecastVal = FORECAST_NUVOLOSO_STABILE;
-        }
-      } else {
-          ambData.forecastVal = FORECAST_NUVOLOSO_STABILE;
+       }
       }
     }
   }
