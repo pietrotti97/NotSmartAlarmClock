@@ -242,9 +242,22 @@ void displayMain(void)
   snprintf(string, sizeof(string), "%2.0f%%", ambData.bsec2.humidity);
   drawString(0, 63, 8, string);
 
+  if (ambData.vBatt >= 3.80f) {
+    u8g2.drawXBMP(112, 57, 16, 8, icona_batteria_carica_16x8);
+  } else if ((ambData.vBatt < 3.80f) && (ambData.vBatt >= 3.45f)) {
+    u8g2.drawXBMP(112, 57, 16, 8, icona_batteria_meta_16x8);
+  } else {
+    u8g2.drawXBMP(112, 57, 16, 8, icona_batteria_scarica_16x8);
+  }
+
   const unsigned char* chosenIco = NULL;
   switch(ambData.forecastVal) {
-    case FORECAST_STABILE_SERENO: chosenIco = imgicons8_sole_16; break;                       // Bel tempo, stabile e senza variazioni
+    case FORECAST_STABILE_SERENO:                                                             // Bel tempo, stabile e senza variazioni
+      if ((sysTime.calendar.tm_hour >=6) && (sysTime.calendar.tm_hour <= 21))
+        chosenIco = imgicons8_sole_16; 
+      else
+        chosenIco = imgicons8_non_disturbare_2_16;
+      break;
     case FORECAST_SOLE_SECCO: chosenIco = imgicons8_estate_16; break;                         // Soleggiato, asciutto, alta pressione
     case FORECAST_VARIBILE_MIGLIORAMENTO: chosenIco = imgicons8_partly_cloudy_day_16; break;  // In miglioramento con schiarite
     case FORECAST_NUVOLOSO_STABILE: chosenIco = imgicons8_nuvola_tratteggiata_16; break;      // Nuvoloso ma stabile
@@ -252,8 +265,8 @@ void displayMain(void)
     case FORECAST_NEBBIA_FOSCHIA:                                                             // Possibile nebbia o foschia (alta umidità)
       if ((sysTime.calendar.tm_hour >=6) && (sysTime.calendar.tm_hour <= 21))
         chosenIco = imgicons8_giorno_nebbioso_16;
-        else
-          chosenIco = imgicons8_notte_nebbiosa_16;
+      else
+        chosenIco = imgicons8_notte_nebbiosa_16;
       break;
     case FORECAST_INSTABILE: chosenIco = imgicons8_sun_rain_cloud_16; break;                  // Poco nuvoloso / Instabilità passeggera
     case FORECAST_LENTO_PEGGIORAMENTO: chosenIco = imgicons8_cloud_16; break;                 // Tendenza al lento peggioramento, nuvole
@@ -336,14 +349,6 @@ void displayMain(void)
       // alarm off
       u8g2.drawXBMP(112, 39, 16, 16, icona_divieto);
       break;
-  }
-
-  if (ambData.vBatt >= 3.80f) {
-    u8g2.drawXBMP(112, 57, 16, 8, icona_batteria_carica_16x8);
-  } else if ((ambData.vBatt < 3.80f) && (ambData.vBatt >= 3.45f)) {
-    u8g2.drawXBMP(112, 57, 16, 8, icona_batteria_meta_16x8);
-  } else {
-    u8g2.drawXBMP(112, 57, 16, 8, icona_batteria_scarica_16x8);
   }
 }
 
