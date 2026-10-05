@@ -126,7 +126,6 @@ typedef enum {
   AIR_POOR,
   AIR_BAD,
   AIR_VERY_BAD,
-  AIR_EXTREMELY_BAD,
   AIR_NOF
 }airQuality_e;
 
@@ -317,6 +316,7 @@ void loop() {
     playAlarmMusic();
     manageBacklight();
     calcWeather();
+    calcAirQuality();
     interface();
 #ifndef SERIAL_ENABLED
     if (myTimers.rst.system == 0 && interfaceCanSleep() == 1 && alarmRinging() == 0) { break; }

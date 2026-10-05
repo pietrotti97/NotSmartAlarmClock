@@ -284,28 +284,24 @@ void displayMain(void)
 
   switch (ambData.airQuality) {
     case AIR_EXCELLENT:
-          snprintf(string, sizeof(string), "AIR :))!");
+        snprintf(string, sizeof(string), "AIR :))");
       break;
     case AIR_GOOD:
-          snprintf(string, sizeof(string), "AIR :))");
+        snprintf(string, sizeof(string), "AIR :)");
       break;
     case AIR_FAIR:
-          snprintf(string, sizeof(string), "AIR :|");
+        snprintf(string, sizeof(string), "AIR :|");
       break;
     case AIR_POOR:
-          snprintf(string, sizeof(string), "AIR :(");
+        snprintf(string, sizeof(string), "AIR :(");
       break;
     case AIR_BAD:
-          snprintf(string, sizeof(string), "AIR :((");
+        snprintf(string, sizeof(string), "AIR :((");
       break;
     case AIR_VERY_BAD:
-          snprintf(string, sizeof(string), "AIR :((!");
-      break;
-    case AIR_EXTREMELY_BAD:
-          snprintf(string, sizeof(string), "!SCAPPA!");
+        snprintf(string, sizeof(string), "!SCAPPA!");
       break;
     case AIR_UNKNOWN:
-    case AIR_NOF:
     default:
       snprintf(string, sizeof(string), "AIR NONE");
       break;
