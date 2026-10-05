@@ -80,7 +80,7 @@ void drawString(uint8_t x, uint8_t y, uint8_t size, const char *s)
       break;
     case 6:
       u8g2.setFont(u8g2_font_6x12_mf);
-      break;    
+      break;     
     case 8:
       u8g2.setFont(u8g2_font_8x13_mf);
       break;
@@ -699,7 +699,6 @@ void displaySetElevation() {
   snprintf(string, sizeof(string), "%4" PRId16 " m", currentElevation);
   drawString(10, 45, 26, string);
 
-
   ui.refresh = false;
 
   if (ui.action.topBtn == BTN_PRESSED) {
@@ -783,30 +782,226 @@ void displaySetSnoozetime(void)
   }
 }
 
+typedef enum {
+  SCR_POS_SETSSID,
+  SCR_POS_SETPWD,
+  SCR_POS_DELETE,
+  SCR_POS_ACCEPT,
+  SCR_POS_BACK,
+  SCR_POS_NOF
+}setWifiPosition_e;
+
 void displaySetWiFi(void)
 {
   static bool onEnter = false;
   static uint8_t selectField = 0;
-  static uint8_t bklTout = 0;
-  static uint8_t bklPerc = 0;
-  static uint8_t stbTout = 0;
-  char string[30];
+  char string[50];
+  static char currSSID[20];
+  static char currPwd[20];
+  const char charset[] = {
+    '\0', // Indice 0: Il tuo carattere speciale per confermare e uscire
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 
+    '_', '-', '.', '!', '@'
+  };
+  uint8_t charsetLen = sizeof(charset);
+  static uint8_t charsetIndex = 0;
+  static setWifiPosition_e position;
+  static uint8_t stringPointer = 0;
   snprintf(string, sizeof(string), "WIFI Set");
   drawString(1, 9, 8, string);
   u8g2.drawHLine(1, 10, 128);
 
+  if (onEnter == false) {
+    strncpy(currSSID, eeprom.data.wifiNet.ssid, strlen(currSSID)-1);
+    strncpy(currPwd, eeprom.data.wifiNet.pwd, strlen(currPwd)-1);
+    position = SCR_POS_SETSSID;
+    stringPointer = 0;
+    onEnter = true;
+  }
+
+  snprintf(string, sizeof(string), "SSID:");
+  drawString(0, 20, 6, string);
+  memset(string, 0, sizeof(string));
+  strncpy(string, currSSID, strlen(currSSID));    // snprintf(string, sizeof(string), "____________________");
+  drawString(0, 28, 6, string);
+  snprintf(string, sizeof(string), "Password:");
+  drawString(0, 40, 6, string);
+  memset(string, 0, sizeof(string));
+  strncpy(string, currPwd, strlen(currPwd));    
+  drawString(0, 48, 6, string);
+  snprintf(string, sizeof(string), "DEL    ACCEPT    BACK");
+  drawString(0, 62, 6, string);
+
+  uint8_t indicatorPosition = stringPointer * 6;
+
+  switch (position) {
+    case SCR_POS_SETSSID:
+      u8g2.drawHLine(indicatorPosition, 29, 5);
+      break;
+
+    case SCR_POS_SETPWD:
+      u8g2.drawHLine(indicatorPosition, 49, 5);
+      break;
+    case SCR_POS_DELETE:
+      u8g2.drawHLine(0, 63, 17);
+      break;
+    case SCR_POS_ACCEPT:
+      u8g2.drawHLine(42, 63, 35);
+      break;
+    case SCR_POS_BACK:
+      u8g2.drawHLine(102, 63, 24);
+      break;
+    case SCR_POS_NOF:
+    default:
+      position = SCR_POS_SETSSID;
+      return;
+      break;
+  }
+
   backlightOn();
   myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
-  
+
+  if (ui.action.topBtn == BTN_PRESSED) {
+    //backlightOn();
+    ui.action.topBtn = BTN_RELEASED;
+    ui.refresh = true;
+  } 
+
   if (ui.action.encBtn == BTN_PRESSED) {
-    ui.position = UI_MENU;
+    switch (position) {
+      case SCR_POS_SETSSID:
+        if (stringPointer >= (sizeof(currSSID)-1)) {
+          stringPointer = 0;
+          charsetIndex = 0;
+          position = SCR_POS_SETPWD;
+        } else {
+          if (currSSID[stringPointer] == charset[0]) {
+            stringPointer = 0;
+            charsetIndex = 0;
+            position = SCR_POS_SETPWD;
+          } else {
+            stringPointer ++;
+            charsetIndex = 0;
+          }        
+        }
+        break;
+
+      case SCR_POS_SETPWD:
+        if(stringPointer >= (sizeof(currPwd)-1)) {
+          stringPointer = 0;
+          charsetIndex = 0;
+          position = SCR_POS_ACCEPT;
+        } else {
+          if (currPwd[stringPointer] == charset[0]) {
+            stringPointer = 0;
+            charsetIndex = 0;
+            position = SCR_POS_ACCEPT;
+          } else {
+            stringPointer ++;
+            charsetIndex = 0;
+          }
+        }
+        break;
+
+      case SCR_POS_DELETE:
+        memset(eeprom.data.wifiNet.ssid, 0, sizeof(eeprom.data.wifiNet.ssid));
+        memset(eeprom.data.wifiNet.pwd, 0, sizeof(eeprom.data.wifiNet.pwd));
+        memset(currSSID, 0, sizeof(currSSID));
+        memset(currPwd, 0, sizeof(currPwd));
+        position = SCR_POS_SETSSID;
+      break;
+
+      case SCR_POS_ACCEPT:
+        position = SCR_POS_SETSSID;
+        stringPointer = 0;
+        memset(eeprom.data.wifiNet.ssid, 0, sizeof(eeprom.data.wifiNet.ssid));
+        memset(eeprom.data.wifiNet.pwd, 0, sizeof(eeprom.data.wifiNet.pwd));
+        strncpy(eeprom.data.wifiNet.ssid, currSSID, strlen(currSSID));
+        strncpy(eeprom.data.wifiNet.pwd, currPwd, strlen(currPwd));
+        backlightOff();
+        ui.position = UI_MENU;
+        ui.refresh = true;
+        onEnter = false;
+        break;
+
+      case SCR_POS_BACK:
+        backlightOff();
+        ui.position = UI_MENU;
+        ui.refresh = true;
+        onEnter = false;
+      break;
+
+      case SCR_POS_NOF:
+      default:
+        position = SCR_POS_SETSSID;
+        break;
+    }
     myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
     ui.action.encBtn = BTN_RELEASED;
+  }
+  
+  if (ui.action.encSteps != 0) {
+    if (ui.action.encSteps > 0) {
+      ui.action.encSteps --;
+      // increase number
+      switch (position) {
+        case SCR_POS_SETSSID:
+          charsetIndex = (charsetIndex + 1 + charsetLen) % charsetLen;
+          currSSID[stringPointer] = charset[charsetIndex];
+          break;
+        case SCR_POS_SETPWD:
+          charsetIndex = (charsetIndex + 1 + charsetLen) % charsetLen;
+          currPwd[stringPointer] = charset[charsetIndex];
+          break;
+        case SCR_POS_DELETE:
+          position = SCR_POS_ACCEPT;
+          break;
+        case SCR_POS_ACCEPT:
+          position = SCR_POS_BACK;
+          break;
+        case SCR_POS_BACK:
+          position = SCR_POS_DELETE;
+          break;
+        case SCR_POS_NOF:
+        default:
+          position = SCR_POS_SETSSID;
+          break;
+      }
+    } else if (ui.action.encSteps < 0) {
+      ui.action.encSteps ++;
+      // decrease number
+      switch (position) {
+        case SCR_POS_SETSSID:
+          charsetIndex = (charsetIndex - 1 + charsetLen) % charsetLen;
+          currSSID[stringPointer] = charset[charsetIndex];
+          break;
+        case SCR_POS_SETPWD:
+          charsetIndex = (charsetIndex - 1 + charsetLen) % charsetLen;
+          currPwd[stringPointer] = charset[charsetIndex];
+          break;
+        case SCR_POS_DELETE:
+          position = SCR_POS_BACK;
+          break;
+        case SCR_POS_ACCEPT:
+          position = SCR_POS_DELETE;
+          break;
+        case SCR_POS_BACK:
+          position = SCR_POS_ACCEPT;
+          break;
+        case SCR_POS_NOF:
+        default:
+          position = SCR_POS_SETSSID;
+          break;
+      }
+    }
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
     ui.refresh = true;
-    backlightOff();
   }
 }
 
+  
 void displaySetDummy(void)
 {
   static bool onEnter = false;
