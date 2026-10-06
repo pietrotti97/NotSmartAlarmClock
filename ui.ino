@@ -795,20 +795,23 @@ void displaySetWiFi(void)
 {
   static bool onEnter = false;
   static uint8_t selectField = 0;
-  char string[50];
-  static char currSSID[20];
-  static char currPwd[20];
+  char string[100];
+  static char currSSID[sizeof(eeprom.data.wifiNet.ssid)];
+  static char currPwd[sizeof(eeprom.data.wifiNet.pwd)];
   const char charset[] = {
     '\0', // Indice 0: Il tuo carattere speciale per confermare e uscire
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 
-    '_', '-', '.', '!', '@'
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_', '-', '.', '!', '@'
   };
   uint8_t charsetLen = sizeof(charset);
   static uint8_t charsetIndex = 0;
   static setWifiPosition_e position;
   static uint8_t stringPointer = 0;
+  static const uint8_t maxVisibleChars = 22;
+  static const uint8_t scrollThreshold = 20;
+  static uint8_t ssidOffset = 0;
+  static uint8_t pwdOffset = 0;
   snprintf(string, sizeof(string), "WIFI Set");
   drawString(1, 9, 8, string);
   u8g2.drawHLine(1, 10, 128);
@@ -821,29 +824,57 @@ void displaySetWiFi(void)
     onEnter = true;
   }
 
+  if (position == SCR_POS_SETSSID) {
+    if (stringPointer >= scrollThreshold) {
+      ssidOffset = stringPointer - scrollThreshold;
+    } else {
+      ssidOffset = 0;
+    }
+  } else if (position == SCR_POS_SETPWD) {
+    ssidOffset = 0;
+    if (stringPointer >= scrollThreshold) {
+      pwdOffset = stringPointer - scrollThreshold;
+    } else {
+      pwdOffset = 0;
+    }
+  } else {
+    ssidOffset = 0;
+    pwdOffset = 0;
+  }
+
   snprintf(string, sizeof(string), "SSID:");
   drawString(0, 20, 6, string);
   memset(string, 0, sizeof(string));
-  strncpy(string, currSSID, strlen(currSSID));    // snprintf(string, sizeof(string), "____________________");
+  if (strlen(currSSID) >= ssidOffset) {
+    strncpy(string, &currSSID[ssidOffset], maxVisibleChars);
+  } else {
+    strncpy(string, currSSID, maxVisibleChars);    //strncpy(string, currSSID, strlen(currSSID));
+  }
+  
   drawString(0, 28, 6, string);
   snprintf(string, sizeof(string), "Password:");
   drawString(0, 40, 6, string);
   memset(string, 0, sizeof(string));
-  strncpy(string, currPwd, strlen(currPwd));    
+  if (strlen(currPwd) >= pwdOffset) {
+    strncpy(string, &currPwd[pwdOffset], maxVisibleChars);
+  } else {
+    strncpy(string, currPwd, maxVisibleChars);    //strncpy(string, currPwd, strlen(currPwd));
+  }
   drawString(0, 48, 6, string);
   snprintf(string, sizeof(string), "DEL    ACCEPT    BACK");
   drawString(0, 62, 6, string);
 
-  uint8_t indicatorPosition = stringPointer * 6;
+  
 
   switch (position) {
-    case SCR_POS_SETSSID:
-      u8g2.drawHLine(indicatorPosition, 29, 5);
-      break;
-
-    case SCR_POS_SETPWD:
-      u8g2.drawHLine(indicatorPosition, 49, 5);
-      break;
+    case SCR_POS_SETSSID: {
+      uint8_t relativeCursorPos = stringPointer - ssidOffset;
+      u8g2.drawHLine(relativeCursorPos * 6, 29, 5);                 //uint8_t indicatorPosition = stringPointer * 6; u8g2.drawHLine(indicatorPosition, 29, 5);
+    } break;
+    case SCR_POS_SETPWD: {
+      uint8_t relativeCursorPos = stringPointer - pwdOffset;
+      u8g2.drawHLine(relativeCursorPos * 6, 49, 5);
+    } break;
     case SCR_POS_DELETE:
       u8g2.drawHLine(0, 63, 17);
       break;
@@ -1101,7 +1132,6 @@ void displaySetBacklight(void)
     onEnter = true;
   }
 
-
   snprintf(string, sizeof(string),"Tout:");
   drawString(2, 25, 8, string);
   snprintf(string, sizeof(string),"%2d s", bklTout);
@@ -1180,6 +1210,11 @@ void displaySetBacklight(void)
   }
 }
 
+typedef enum {
+  SCR_DBG_SENSORS,
+  SCR_DBG_CONNECTIVITY,
+  SCR_DBG_VARIOUS
+}debugDataScreen_e;
 void displayRealtimeData() 
 {
   static bool onEnter = false;
@@ -1187,25 +1222,44 @@ void displayRealtimeData()
   static uint8_t bklTout = 0;
   static uint8_t bklPerc = 0;
   static uint8_t stbTout = 0;
+  static debugDataScreen_e position = SCR_DBG_SENSORS;
   char string[50];
   snprintf(string, sizeof(string), "DEBUG Vb:%1.2f %u", ambData.vBatt, millis()/1000);
   drawString(0, 7, 6, string);
   //u8g2.drawHLine(0, 8, 128);
 
-  snprintf(string, sizeof(string),"Time:%ums", (int(ambData.bsec2.timestamp / INT64_C(1000000))));
-  drawString(0, 16, 6, string);
-  snprintf(string, sizeof(string),"%.1fC %.0f%% %.0fhPa", ambData.bsec2.temperature, ambData.bsec2.humidity, ambData.bsec2.pressure);
-  drawString(0, 24, 6, string);
-  snprintf(string, sizeof(string),"Stab:%d RunIn:%d Accu:%d", ambData.bsec2.status.stabilize, ambData.bsec2.status.runin, ambData.bsec2.status.accuracy);
-  drawString(0, 32, 6, string);
-  snprintf(string, sizeof(string),"eCO2:%.0fppm IAQ:%.0f", ambData.bsec2.debug.eCO2, ambData.bsec2.debug.IAQ);
-  drawString(0, 40, 6, string);
-  snprintf(string, sizeof(string),"bVOC:%.1fppm n:%d", ambData.bsec2.debug.bVOC, ambData.bsec2.status.count);
-  drawString(0, 48, 6, string);
-  snprintf(string, sizeof(string),"gas:%.1f%%", ambData.bsec2.debug.gasPerc);
-  drawString(0, 56, 6, string);
-  snprintf(string, sizeof(string),"Forecast n:%d full:%d", rtcBkp.forecast.count, rtcBkp.forecast.full);
-  drawString(0, 64, 6, string);
+  switch(position) {
+    case SCR_DBG_SENSORS: {
+      snprintf(string, sizeof(string),"Time:%ums", (int(ambData.bsec2.timestamp / INT64_C(1000000))));
+      drawString(0, 16, 6, string);
+      snprintf(string, sizeof(string),"%.1fC %.0f%% %.0fhPa", ambData.bsec2.temperature, ambData.bsec2.humidity, ambData.bsec2.pressure);
+      drawString(0, 24, 6, string);
+      snprintf(string, sizeof(string),"Stab:%d RunIn:%d Accu:%d", ambData.bsec2.status.stabilize, ambData.bsec2.status.runin, ambData.bsec2.status.accuracy);
+      drawString(0, 32, 6, string);
+      snprintf(string, sizeof(string),"eCO2:%.0fppm IAQ:%.0f", ambData.bsec2.debug.eCO2, ambData.bsec2.debug.IAQ);
+      drawString(0, 40, 6, string);
+      snprintf(string, sizeof(string),"bVOC:%.1fppm n:%d", ambData.bsec2.debug.bVOC, ambData.bsec2.status.count);
+      drawString(0, 48, 6, string);
+      snprintf(string, sizeof(string),"gas:%.1f%%", ambData.bsec2.debug.gasPerc);
+      drawString(0, 56, 6, string);
+      snprintf(string, sizeof(string),"Forecast n:%d full:%d", rtcBkp.forecast.count, rtcBkp.forecast.full);
+      drawString(0, 64, 6, string);
+    } break;
+
+    case SCR_DBG_CONNECTIVITY: {
+      snprintf(string, sizeof(string),"CONNECTIVITY");
+      drawString(0, 16, 6, string);
+    } break;
+
+    case SCR_DBG_VARIOUS: {
+      snprintf(string, sizeof(string),"VARIOUS INFO");
+      drawString(0, 16, 6, string);
+    } break;
+
+    default:
+      position = SCR_DBG_SENSORS;
+      break;
+  }
 
   backlightOn();
   myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
@@ -1216,5 +1270,39 @@ void displayRealtimeData()
     ui.action.encBtn = BTN_RELEASED;
     ui.refresh = true;
     backlightOff();
+  }
+
+  if (ui.action.encSteps != 0) {
+    if (ui.action.encSteps > 0) {
+      ui.action.encSteps --;
+      // increase number
+      switch(position) {
+        case SCR_DBG_SENSORS:
+          position = SCR_DBG_CONNECTIVITY;
+        break;
+        case SCR_DBG_CONNECTIVITY:
+          position = SCR_DBG_VARIOUS;
+        break;
+        case SCR_DBG_VARIOUS:
+          position = SCR_DBG_SENSORS;
+        break;
+      }
+    } else if (ui.action.encSteps < 0) {
+      ui.action.encSteps ++;
+      // decrease number
+      switch(position) {
+        case SCR_DBG_SENSORS:
+          position = SCR_DBG_VARIOUS;
+        break;
+        case SCR_DBG_CONNECTIVITY:
+          position = SCR_DBG_SENSORS;
+        break;
+        case SCR_DBG_VARIOUS:
+          position = SCR_DBG_CONNECTIVITY;
+        break;
+      }
+    }
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+    ui.refresh = true;
   }
 }
