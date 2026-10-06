@@ -42,4 +42,5 @@ void checkVariables(void)
   eeprom.data.backlight.durationSec = constrain(eeprom.data.backlight.durationSec, 5, 60);
   eeprom.data.backlight.perc = constrain(eeprom.data.backlight.perc, 0, 100);
   eeprom.data.backlight.stbToutSec = constrain(eeprom.data.backlight.stbToutSec, 30, 120);
+  eeprom.data.backlight.contrast = constrain(eeprom.data.backlight.contrast, 150, 255);
 }

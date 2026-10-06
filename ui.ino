@@ -164,6 +164,12 @@ void draw(const char *s, uint8_t symbol, int degree)
 
 void interface() 
 {
+  static uint8_t currContrast = 0;
+  if (eeprom.data.backlight.contrast != currContrast) {
+    currContrast = eeprom.data.backlight.contrast;
+    u8g2.setContrast(currContrast);
+  }
+  
   if (myTimers.rst.btnTimerElapsed == 0) {
     if (btnStatus.topButton == 1) {
       logPrintf("\n\rTop Btn click");
@@ -1120,6 +1126,7 @@ void displaySetBacklight(void)
   static uint8_t bklTout = 0;
   static uint8_t bklPerc = 0;
   static uint8_t stbTout = 0;
+  static uint8_t contrast = 0;
   char string[30];
   snprintf(string, sizeof(string), "BACKLIGHT SET");
   drawString(1, 9, 8, string);
@@ -1129,26 +1136,32 @@ void displaySetBacklight(void)
     bklTout = eeprom.data.backlight.durationSec;
     bklPerc = eeprom.data.backlight.perc;
     stbTout = eeprom.data.backlight.stbToutSec;
+    contrast = eeprom.data.backlight.contrast;
     onEnter = true;
   }
 
   snprintf(string, sizeof(string),"Tout:");
-  drawString(2, 25, 8, string);
+  drawString(2, 22, 8, string);
   snprintf(string, sizeof(string),"%2d s", bklTout);
-  drawString(80, 25, 8, string);
+  drawString(80, 22, 8, string);
   snprintf(string, sizeof(string),"Perc:");
-  drawString(2, 40, 8, string);
+  drawString(2, 35, 8, string);
   snprintf(string, sizeof(string),"%3d% %", bklPerc);
-  drawString(80, 40, 8, string);
+  drawString(80, 35, 8, string);
   snprintf(string, sizeof(string),"Stb Tout:");
-  drawString(2, 55, 8, string);
+  drawString(2, 48, 8, string);
   snprintf(string, sizeof(string),"%2d s", stbTout);
-  drawString(80, 55, 8, string);
+  drawString(80, 48, 8, string);
+  snprintf(string, sizeof(string),"Contrast:");
+  drawString(2, 60, 8, string);
+  snprintf(string, sizeof(string),"%2d", contrast);
+  drawString(80, 60, 8, string);
   
   switch(selectField) {
-    case 0: u8g2.drawHLine(80, 28, 30); break;
-    case 1: u8g2.drawHLine(80, 43, 30); break;
-    case 2: u8g2.drawHLine(80, 58, 30); break;
+    case 0: u8g2.drawHLine(80, 23, 30); break;
+    case 1: u8g2.drawHLine(80, 36, 30); break;
+    case 2: u8g2.drawHLine(80, 49, 30); break;
+    case 3: u8g2.drawHLine(80, 61, 25); break;
     default: selectField = 0; break;
   }
 
@@ -1161,11 +1174,12 @@ void displaySetBacklight(void)
   } 
   if (ui.action.encBtn == BTN_PRESSED) {
     selectField ++;
-    if(selectField > 2) {
+    if(selectField > 3) {
       selectField = 0;
       eeprom.data.backlight.durationSec = bklTout;
       eeprom.data.backlight.perc = bklPerc;
       eeprom.data.backlight.stbToutSec = stbTout;
+      eeprom.data.backlight.contrast = contrast;
       onEnter = false;
       ui.position = UI_MENU;
       backlightOff();
@@ -1188,6 +1202,12 @@ void displaySetBacklight(void)
             } 
           break;
         case 2: if (stbTout < 120) {stbTout ++;} break;
+        case 3:
+          if (contrast < 255) {
+            contrast ++;
+            u8g2.setContrast(contrast);
+          }
+          break;
         default: selectField = 0; break;        
       }
     } else if (ui.action.encSteps < 0) {
@@ -1202,6 +1222,12 @@ void displaySetBacklight(void)
           }
           break;
         case 2: if (stbTout > 30) {stbTout --;} break;
+        case 3:
+          if (contrast > 100) {
+            contrast --;
+            u8g2.setContrast(contrast);
+          }
+          break;
         default: selectField = 0; break;        
       }
     }

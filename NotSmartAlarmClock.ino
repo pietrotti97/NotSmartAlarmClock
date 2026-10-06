@@ -150,6 +150,7 @@ typedef struct {
     uint8_t durationSec;
     uint8_t perc;
     uint8_t stbToutSec;
+    uint8_t contrast;
   }backlight;
 }data_s;
 
