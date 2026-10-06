@@ -143,8 +143,8 @@ typedef struct {
     int16_t altitude;
   }info;
   struct {
-    char ssid[32];
-    char pwd[32];
+    char ssid[33];
+    char pwd[64];
   }wifiNet;
   struct {
     uint8_t durationSec;
