@@ -43,6 +43,17 @@ typedef struct {
     uint16_t count;
     bool full;
   }forecast;
+  struct {
+    struct {
+      uint8_t status;
+      uint8_t result;
+      uint8_t timeDelay;
+      uint8_t ipAddr[4];
+      uint8_t strength;
+      uint8_t syncToday;
+      tm lastSyncTime;
+    } lastConn;
+  }wifi;
 } BackupDataRTC;
 
 RTC_NOINIT_ATTR uint32_t rtcInit;
@@ -132,6 +143,8 @@ typedef enum {
 typedef struct {
   struct {
     int16_t secondsDriftPerDay;
+    float timezone;
+    uint8_t isDST;
   }time;
   struct {
     uint8_t hour;
@@ -145,6 +158,7 @@ typedef struct {
   struct {
     char ssid[33];
     char pwd[64];
+    uint8_t syncHour;
   }wifiNet;
   struct {
     uint8_t durationSec;
@@ -310,6 +324,8 @@ void loop() {
     manageEEProm();
     checkVariables();
     checkTime();
+    checkSyncTimeNetwork();
+    wifiHandler();
     newDayStuff();
     readVBatt();
     readSensorFunc();
