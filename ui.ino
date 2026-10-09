@@ -11,16 +11,16 @@ typedef enum{
   UI_SET_TIME,          // set time screen
   UI_SET_ALARM,         // set alarm screen
   UI_SET_ELEVATION,     // set elevation screen
-  UI_SET_SNOOZETIME,    // set elevation screen
-  UI_SET_WIFI,          // set elevation screen
-  UI_SET_DUMMY,         // set elevation screen
-  UI_SET_SECONDSDRIFT,  // set drift per day in seconds
+  UI_SET_SNOOZETIME,    // set snooze time screen
+  UI_SET_WIFI,          // set wifi username and password
+  UI_SET_WIFI_SYNC,     // set wifi sync details
+  //UI_SET_SECONDSDRIFT,  // set drift per day in seconds
   UI_SET_BACKLIGHT,     // set backlight intensity, timeout and system sleep
   UI_SET_REALTIMEDATA,  // view realtime data from sensors
   UI_NOF
 }uiStates_e;
 
-const char* options[] = { "Set Time", "Set Alarm", "Altitude", "Back", "Snooze Time", "WiFi", "Dummy", "Set Drift/day", "Backlight", "RealTime data"};
+const char* options[] = { "Set Time", "Set Alarm", "Altitude", "Back", "Snooze Time", "WiFi", "NTP Sync", "Backlight", "RealTime data"};
 const uint8_t optionCount = UI_NOF -1;
 
 typedef struct {
@@ -206,8 +206,8 @@ void interface()
       case UI_SET_ELEVATION: displaySetElevation(); break;
       case UI_SET_SNOOZETIME: displaySetSnoozetime(); break;
       case UI_SET_WIFI: displaySetWiFi(); break;
-      case UI_SET_DUMMY: displaySetDummy(); break;
-      case UI_SET_SECONDSDRIFT: displaySetSecondsdrift(); break;
+      case UI_SET_WIFI_SYNC: displaySetNtpSync(); break;
+      //case UI_SET_SECONDSDRIFT: displaySetSecondsdrift(); break;
       case UI_SET_BACKLIGHT: displaySetBacklight(); break;
       case UI_SET_REALTIMEDATA: displayRealtimeData(); break;
       default: ui.position = UI_HOME; break;
@@ -394,10 +394,10 @@ void displayMenu(void) {
       case 3: ui.position = UI_HOME; break;
       case 4: ui.position = UI_SET_SNOOZETIME; break;
       case 5: ui.position = UI_SET_WIFI; break;
-      case 6: ui.position = UI_SET_DUMMY; break;
-      case 7: ui.position = UI_SET_SECONDSDRIFT; break;
-      case 8: ui.position = UI_SET_BACKLIGHT; break;
-      case 9: ui.position = UI_SET_REALTIMEDATA; break; 
+      case 6: ui.position = UI_SET_WIFI_SYNC; break;
+      //case 7: ui.position = UI_SET_SECONDSDRIFT; break;
+      case 7: ui.position = UI_SET_BACKLIGHT; break;
+      case 8: ui.position = UI_SET_REALTIMEDATA; break; 
       default: ui.position = UI_MENU; break;
     }
     ui.action.encBtn = BTN_RELEASED;
@@ -1039,27 +1039,108 @@ void displaySetWiFi(void)
 }
 
   
-void displaySetDummy(void)
+void displaySetNtpSync(void)
 {
   static bool onEnter = false;
   static uint8_t selectField = 0;
-  static uint8_t bklTout = 0;
-  static uint8_t bklPerc = 0;
-  static uint8_t stbTout = 0;
+  static float tZone = 0;
+  static uint8_t isDst = 0;
+  static uint8_t syncHour = 0;
+  static int16_t secDrift = 0;
+
   char string[30];
-  snprintf(string, sizeof(string), "DUMMY SCREEN");
+  snprintf(string, sizeof(string), "SET NTP SYNC");
   drawString(1, 9, 8, string);
   u8g2.drawHLine(1, 10, 128);
 
   backlightOn();
   myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+
+  if (onEnter == false) {
+    tZone = eeprom.data.time.timezone;
+    isDst = eeprom.data.time.isDST;
+    syncHour = eeprom.data.wifiNet.syncHour;
+    secDrift = eeprom.data.time.secondsDriftPerDay;
+    onEnter = true;
+  }
+
+  snprintf(string, sizeof(string),"TimeZone:");
+  drawString(0, 22, 8, string);
+  snprintf(string, sizeof(string),"%2.02f", tZone);
+  drawString(80, 22, 8, string);
+  snprintf(string, sizeof(string),"DST:");
+  drawString(0, 35, 8, string);
+  if (isDst)
+    snprintf(string, sizeof(string),"YES");
+  else
+    snprintf(string, sizeof(string),"NO");
   
+  drawString(80, 35, 8, string);
+  snprintf(string, sizeof(string),"SyncHour:");
+  drawString(0, 48, 8, string);
+  snprintf(string, sizeof(string),"%02d", syncHour);
+  drawString(80, 48, 8, string);
+  snprintf(string, sizeof(string),"Drift:");
+  drawString(0, 60, 8, string);
+  snprintf(string, sizeof(string),"%04" PRId16 "s", secDrift);
+  drawString(80, 60, 8, string);
+
+  switch(selectField) {
+    case 0: u8g2.drawHLine(80, 23, 30); break;
+    case 1: u8g2.drawHLine(80, 36, 25); break;
+    case 2: u8g2.drawHLine(80, 49, 15); break;
+    case 3: u8g2.drawHLine(80, 61, 40); break;
+    default: selectField = 0; break;
+  }
+  ui.refresh = false;
+
   if (ui.action.encBtn == BTN_PRESSED) {
-    ui.position = UI_MENU;
+    selectField ++;
+    if(selectField > 3) {
+      selectField = 0;
+      eeprom.data.time.timezone = tZone;
+      eeprom.data.time.isDST = isDst;
+      eeprom.data.wifiNet.syncHour = syncHour;
+      eeprom.data.time.secondsDriftPerDay = secDrift;
+      onEnter = false;
+      ui.position = UI_MENU;
+      backlightOff();
+    }
     myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
     ui.action.encBtn = BTN_RELEASED;
     ui.refresh = true;
-    backlightOff();
+  } 
+
+  if (ui.action.topBtn == BTN_PRESSED) {    
+    ui.action.topBtn = BTN_RELEASED;
+    ui.refresh = true;
+    startWiFi();
+  } 
+
+  if (ui.action.encSteps != 0) {
+    if (ui.action.encSteps > 0) {
+      ui.action.encSteps --;
+      // increase number
+      switch(selectField) {
+        case 0: if (tZone < 14.0f) {tZone = tZone + 0.25f;} break;
+        case 1: isDst = !isDst; break;
+        case 2: if (syncHour < 23) {syncHour ++;} else {syncHour = 0;} break;
+        case 3: if (secDrift < 999) { secDrift ++; } break;
+        default: selectField = 0; break;        
+      }
+    } else if (ui.action.encSteps < 0) {
+      ui.action.encSteps ++;
+      // decrease number
+      switch(selectField) {
+        case 0: if (tZone > -12.0f) {tZone = tZone - 0.25f;} break;
+        case 1: isDst = !isDst; break;
+        case 2: if (syncHour > 0) {syncHour --;} else {syncHour = 23;} break;
+        case 3: if (secDrift > -999) { secDrift --; } break;
+        default: selectField = 0; break;        
+      }
+    }
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+    ui.refresh = true;
   }
 }
 
@@ -1274,7 +1355,53 @@ void displayRealtimeData()
 
     case SCR_DBG_CONNECTIVITY: {
       snprintf(string, sizeof(string),"CONNECTIVITY");
+      snprintf(string, sizeof(string),"IP: %03d.%03d.%03d.%03d", rtcBkp.wifi.lastConn.ipAddr[0], rtcBkp.wifi.lastConn.ipAddr[1], rtcBkp.wifi.lastConn.ipAddr[2], rtcBkp.wifi.lastConn.ipAddr[3]);
       drawString(0, 16, 6, string);
+      switch(rtcBkp.wifi.lastConn.strength) {
+        case 0:
+          snprintf(string, sizeof(string),"SIGNAL NO");
+          break;
+        case 1:
+          snprintf(string, sizeof(string),"SIGNAL BAD");
+          break;
+        case 2:
+          snprintf(string, sizeof(string),"SIGNAL OK");
+          break;
+        case 3:
+          snprintf(string, sizeof(string),"SIGNAL GOOD");
+          break;
+        case 4:
+          snprintf(string, sizeof(string),"SIGNAL EXCELLENT");
+          break;
+        default:
+          rtcBkp.wifi.lastConn.strength = 0;
+          break;
+      }
+      drawString(0, 24, 6, string);
+      switch(rtcBkp.wifi.lastConn.result) {
+        case 0:
+          snprintf(string, sizeof(string),"NTP SYNC NO");
+          break;
+        case 1:
+          snprintf(string, sizeof(string),"NTP SYNC ERR");
+          break;
+        case 2:
+          snprintf(string, sizeof(string),"NTP SYNC OK");
+          break;
+        default:
+          rtcBkp.wifi.lastConn.result = 0;
+          break;
+      }
+      drawString(0, 32, 6, string);
+
+      
+      snprintf(string, sizeof(string), "Current drift: %4" PRId16 "s", eeprom.data.time.secondsDriftPerDay);
+      drawString(0, 40, 6, string);
+      snprintf(string, sizeof(string), "Last sync: %02d:%02d.%02d", rtcBkp.wifi.lastConn.lastSyncTime.tm_hour, rtcBkp.wifi.lastConn.lastSyncTime.tm_min, rtcBkp.wifi.lastConn.lastSyncTime.tm_sec);
+      drawString(0, 48, 6, string);
+      snprintf(string, sizeof(string), "%2d/%02d/%04d", rtcBkp.wifi.lastConn.lastSyncTime.tm_mday, rtcBkp.wifi.lastConn.lastSyncTime.tm_mon + 1, rtcBkp.wifi.lastConn.lastSyncTime.tm_year + 1900);
+      drawString(60, 56, 6, string);
+
     } break;
 
     case SCR_DBG_VARIOUS: {
@@ -1289,6 +1416,15 @@ void displayRealtimeData()
 
   backlightOn();
   myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+
+  if (ui.action.topBtn == BTN_PRESSED) {
+    if (position == SCR_DBG_CONNECTIVITY) {
+      startWiFi();
+    }
+    backlightOn();
+    ui.action.topBtn = BTN_RELEASED;
+    ui.refresh = true;
+  } 
   
   if (ui.action.encBtn == BTN_PRESSED) {
     ui.position = UI_MENU;
