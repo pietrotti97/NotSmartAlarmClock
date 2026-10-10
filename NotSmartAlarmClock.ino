@@ -12,6 +12,11 @@ extern "C" {
   #include "soc/rtc.h"
 }
 
+const uint8_t currentFwVer = 1;
+const uint8_t currentFwRel = 0;
+const char* github_user = "pietrotti97";
+const char* github_repo = "NotSmartAlarmClock";
+
 #define PIN_BTN1         0
 #define PIN_ENCODER_BTN  1
 #define PIN_3V3_SW       2
@@ -243,6 +248,9 @@ static void IRAM_ATTR TimerCallback(void* arg) {
 
 void initPins(void) 
 {
+  pinMode(PIN_3V3_SW, OUTPUT);
+  digitalWrite(PIN_3V3_SW, LOW);
+
   pinMode(PIN_BTN1, INPUT);
   pinMode(PIN_ENCODER_BTN, INPUT);
   pinMode(PIN_ENCODER_S1, INPUT);
@@ -250,7 +258,6 @@ void initPins(void)
   pinMode(PIN_SWITCH_A, INPUT);
   pinMode(PIN_SWITCH_B, INPUT);
 
-  pinMode(PIN_3V3_SW, OUTPUT);
   pinMode(PIN_EN_ADCVBAT, OUTPUT);
   pinMode(PIN_ADC_VBAT, ANALOG);
   analogReadResolution(12); 

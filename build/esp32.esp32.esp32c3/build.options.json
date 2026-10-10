@@ -1,0 +1,10 @@
+{
+  "additionalFiles": "../..",
+  "builtInLibrariesFolders": "/home/pietro/.arduino15/libraries",
+  "compiler.optimization_flags": "-Os",
+  "customBuildProperties": "",
+  "fqbn": "esp32:esp32:esp32c3:UploadSpeed=115200,CDCOnBoot=cdc,CPUFreq=80,FlashFreq=40,FlashMode=dio,FlashSize=4M,PartitionScheme=default,DebugLevel=none,EraseFlash=none,JTAGAdapter=default,ZigbeeMode=default",
+  "hardwareFolders": "/home/pietro/.arduino15/packages/esp32/hardware/esp32/3.3.11,/home/pietro/.arduino15/packages/esp32/hardware/esp32/3.3.11",
+  "otherLibrariesFolders": "/home/pietro/Documenti/Projects/Arduino/libraries",
+  "sketchLocation": "/home/pietro/Documenti/Projects/Arduino/NotSmartAlarmClock"
+}

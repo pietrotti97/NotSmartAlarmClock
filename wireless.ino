@@ -1,5 +1,10 @@
 #include <WiFi.h>
 #include "esp_sntp.h"
+#include <HTTPClient.h>
+#include <HTTPUpdate.h>
+#include <WiFiClientSecure.h>
+
+
 
 #define TIMEOUT_MS 30000
 #define RETRY_DELAY_MS 120000
@@ -13,6 +18,8 @@ typedef enum {
   WL_STATUS_NTPSYNC,
   WL_STATUS_NTPSYNCWAIT,
   WL_STATUS_NTPSUCCESS,
+  WL_STATUS_CHECKFWUPDATE,
+  WL_STATUS_EXECFWUPDATE,
   WL_STATUS_ERROR,
   WL_STATUS_DISCONNECT
 }wifiStatus_e;
@@ -35,6 +42,9 @@ void wifiHandler(void)
     case WL_STATUS_BEGIN: {
       memset(&wifiData, 0, sizeof(wifiData_s));
       memset(&rtcBkp.wifi.lastConn, 0, sizeof(rtcBkp.wifi.lastConn));
+      WiFi.disconnect(true); 
+      WiFi.mode(WIFI_OFF);
+      delay(10);
       WiFi.mode(WIFI_STA);
       if (strlen(eeprom.data.wifiNet.ssid) < 2 || strlen(eeprom.data.wifiNet.pwd) < 2) {
         wifiData.status = WL_STATUS_OFF;
@@ -75,11 +85,16 @@ void wifiHandler(void)
     } break;
     case WL_STATUS_GETIP: {
       IPAddress ip = WiFi.localIP();
-      rtcBkp.wifi.lastConn.ipAddr[0] = ip[0];
-      rtcBkp.wifi.lastConn.ipAddr[1] = ip[1];
-      rtcBkp.wifi.lastConn.ipAddr[2] = ip[2];
-      rtcBkp.wifi.lastConn.ipAddr[3] = ip[3];
-      wifiData.status = WL_STATUS_NTPSYNC;
+      if (ip[0] != 0 && ip[1] != 0 && ip[2] != 0 && ip[3] != 0) {
+        rtcBkp.wifi.lastConn.ipAddr[0] = ip[0];
+        rtcBkp.wifi.lastConn.ipAddr[1] = ip[1];
+        rtcBkp.wifi.lastConn.ipAddr[2] = ip[2];
+        rtcBkp.wifi.lastConn.ipAddr[3] = ip[3];
+        wifiData.status = WL_STATUS_NTPSYNC;
+        logPrintf("> %d.%d.%d.%d", ip[0],ip[1],ip[2],ip[3]);
+      } else {
+        logPrintf("\n\rWaiting IP Addr:");
+      }
     } break;
     case WL_STATUS_NTPSYNC: {
       wifiData.timeCorrection.oldTime = time(NULL);
@@ -113,6 +128,18 @@ void wifiHandler(void)
       eeprom.data.time.secondsDriftPerDay = timeDrift;
       rtcBkp.wifi.lastConn.result = 2;
       wifiData.status = WL_STATUS_DISCONNECT;
+    } break;
+
+    case WL_STATUS_CHECKFWUPDATE: {
+      if (checkFwUpdateAvail())
+        wifiData.status = WL_STATUS_EXECFWUPDATE;
+      else 
+        wifiData.status = WL_STATUS_DISCONNECT;
+    } break;
+    case WL_STATUS_EXECFWUPDATE: {
+      if(!FwUpdateDownload()) {
+        wifiData.status = WL_STATUS_DISCONNECT;
+      }
     } break;
     case WL_STATUS_ERROR: {
       logPrintf("\n\rWiFi ERROR");
@@ -161,3 +188,87 @@ void checkSyncTimeNetwork(void)
     rtcBkp.wifi.lastConn.syncToday = 0;
   }
 }
+
+uint8_t checkFwUpdateAvail(void)
+{
+  WiFiClientSecure client_api;
+  client_api.setInsecure(); // no rootCA cert for HTTPS
+  
+  HTTPClient http;
+  
+  String url_api = "https://github.com" + String(github_user) + "/" + String(github_repo) + "/releases/latest";
+  
+  logPrintf("Checking for updates...");
+  http.begin(client_api, url_api);
+  
+  http.addHeader("User-Agent", "ESP32-C3-OTA-Client");  // set userAgent
+
+  int httpCode = http.GET();
+
+  if (httpCode == HTTP_CODE_OK) {
+      String payload = http.getString();
+      int index = payload.indexOf("\"tag_name\":\"");
+      if (index != -1) {
+          int start = index + 12; 
+          int end = payload.indexOf("\"", start);
+          String tag_github = payload.substring(start, end);
+          
+          logPrintf("Tag trovato su GitHub: %s\n", tag_github.c_str());
+          
+          int github_ver = 0;
+          int github_rel = 0;
+          sscanf(tag_github.c_str(), "%d.%d", &github_ver, &github_rel);
+
+          if (github_ver > currentFwVer || (github_ver == currentFwVer && github_rel > currentFwRel)) {
+            logPrintf("Nuova versione disponibile (%d.%d)! Disconnessione API e avvio OTA...\n", github_ver, github_rel);
+            http.end();
+            return 1;
+          } else {
+            logPrintf("Il firmware attuale (%d.%d) è già aggiornato.\n", currentFwVer, currentFwRel);
+          }
+      } else {
+        logPrintf("Errore: Campo 'tag_name' non trovato nel JSON. Controlla di aver creato una Release su GitHub.");
+      }
+  } else {
+    logPrintf("Errore richiesta HTTP API. Codice HTTP: %d (Se -1, verifica la connessione a internet)\n", httpCode);
+  }
+  http.end();
+  return 0; // firmware not available
+}
+
+uint8_t FwUpdateDownload(void)
+{
+  WiFiClientSecure client;
+  client.setInsecure(); // no rootCA cert for HTTPS
+  httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS); // enable redirect tracking
+  String fwUrl = "https://github.com" + String(github_user) + "/" + String(github_repo) + "/releases/latest/download/firmware.bin";
+  
+  logPrintf("Download from URL: %s\n", fwUrl.c_str());
+    
+  t_httpUpdate_return ret = httpUpdate.update(client, fwUrl);
+  switch (ret) {
+      case HTTP_UPDATE_FAILED:
+          logPrintf("OTA Failed, err(%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+          break;
+          
+      case HTTP_UPDATE_NO_UPDATES:
+          logPrintf("No .bin found");
+          break;
+          
+      case HTTP_UPDATE_OK:
+          logPrintf("OTA Ok, reboot...");
+          execOtaReboot();
+          break;
+  }
+}
+
+void execOtaReboot(void)
+{
+  Wire.end(); 
+  pinMode(8, INPUT_PULLUP);
+  pinMode(9, INPUT_PULLUP);
+  delay(20);
+  ESP.restart();
+}
+
+
