@@ -1407,6 +1407,8 @@ void displayRealtimeData()
     case SCR_DBG_VARIOUS: {
       snprintf(string, sizeof(string),"VARIOUS INFO");
       drawString(0, 16, 6, string);
+      snprintf(string, sizeof(string), "FW Ver: %d.%d", currentFwVer, currentFwRel);
+      drawString(0, 48, 6, string);
     } break;
 
     default:
