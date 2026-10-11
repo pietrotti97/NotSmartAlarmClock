@@ -38,8 +38,10 @@ void wifiHandler(void)
 {
   switch(wifiData.status) {
     case WL_STATUS_OFF:
+      sysAct.wifi = 0;
       break;
     case WL_STATUS_BEGIN: {
+      sysAct.wifi = 1;
       memset(&wifiData, 0, sizeof(wifiData_s));
       memset(&rtcBkp.wifi.lastConn, 0, sizeof(rtcBkp.wifi.lastConn));
       WiFi.disconnect(true); 
@@ -144,7 +146,7 @@ void wifiHandler(void)
     case WL_STATUS_ERROR: {
       logPrintf("\n\rWiFi ERROR");
       rtcBkp.wifi.lastConn.result = 1;
-      wifiData.status = WL_STATUS_OFF;
+      wifiData.status = WL_STATUS_DISCONNECT;
     } break;
     case WL_STATUS_DISCONNECT: {
       WiFi.disconnect(true);
@@ -176,6 +178,7 @@ void checkSyncTimeNetwork(void)
       rtcBkp.wifi.lastConn.result = 0;
       rtcBkp.wifi.lastConn.syncToday = 1;
       lastSyncTime = time(NULL);
+      sysAct.wifi = 1;
       startWiFi();
     } else {
       if (rtcBkp.wifi.lastConn.result != 2) {

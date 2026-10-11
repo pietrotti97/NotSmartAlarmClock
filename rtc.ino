@@ -8,7 +8,7 @@ void resetRtcTime() {
     t.tm_mday = 29;
     t.tm_mon = 8 - 1;
     t.tm_year = 2026 - 1900;
-    t.tm_isdst = -1;
+    t.tm_isdst = eeprom.data.time.isDST;
     time_t timestamp = mktime(&t);
     struct timeval tv = {.tv_sec = timestamp, .tv_usec = 0};
     settimeofday(&tv, NULL);
@@ -24,7 +24,7 @@ void setRtcTime(uint8_t hour, uint8_t min, uint8_t sec, uint8_t day, uint8_t mon
   t.tm_mday = day;
   t.tm_mon = month -1;
   t.tm_year = year - 1900;
-  t.tm_isdst = -1;
+  t.tm_isdst = eeprom.data.time.isDST;
   time_t timestamp = mktime(&t);
   struct timeval tv = {.tv_sec = timestamp, .tv_usec = 0};
   settimeofday(&tv, NULL);

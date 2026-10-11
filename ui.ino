@@ -59,14 +59,6 @@ void initLCD(void)
   u8g2.sendBuffer();
 }
 
-bool interfaceCanSleep() {
-  if(ui.position == UI_HOME && ui.refresh == false)
-    return 1; // if system can go to sleep
-  else
-    return 0; // if system cannot enter sleep
-}
-
-
 void drawString(uint8_t x, uint8_t y, uint8_t size, const char *s)
 {
   if (x>128 || y>64) return;
@@ -227,6 +219,11 @@ void interface()
         myTimers.rst.uiRefresh = 1;
       }
     }
+  }
+  if(ui.position == UI_HOME && ui.refresh == false) {
+    sysAct.ui = 0;  // sys can go to sleep
+  } else {
+    sysAct.ui = 1;
   }
 }
 

@@ -93,14 +93,10 @@ void checkAlarm(void)
     tAlarm.inSnooze = false;
     tAlarm.nextSnoozeTime = 0;
   }
-}
-
-uint8_t alarmRinging(void) 
-{
   if (tAlarm.fired == true || tAlarm.playMelody == true || tAlarm.inSnooze == true) 
-    return true;
+    sysAct.alarm = 1;
   else
-    return false;
+    sysAct.alarm = 0;
 }
 
 void playAlarm(void) 

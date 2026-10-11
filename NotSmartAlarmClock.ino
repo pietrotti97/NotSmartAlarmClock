@@ -75,8 +75,8 @@ typedef struct {
 time_s sysTime;
 
 #define SYSTEM_SLEEP_WAIT_LONG    600 // 60 seconds before going to sleep if no user button
-#define SYSTEM_SLEEP_WAIT_MID     100 // 30 seconds before going to sleep if no user button
-#define SYSTEM_SLEEP_WAIT_FAST    5  // 250ms before going to sleep when waking up from sleep cause rtc alarm
+#define SYSTEM_SLEEP_WAIT_MID     300 // 30 seconds before going to sleep if no user button
+#define SYSTEM_SLEEP_WAIT_FAST    5  //  500ms before going to sleep when waking up from sleep cause rtc alarm
 
 //#define SERIAL_ENABLED
 
@@ -202,12 +202,20 @@ typedef struct {
 }sensor_s;
 sensor_s ambData;
 
-
 typedef struct {
   data_s data;
   uint16_t crc16;
 }eepromData_s;
 eepromData_s eeprom;
+
+// struct that defines the system state, if all the struct is 0 sys can go to sleep
+typedef struct {
+  bool ui;
+  bool wifi;
+  bool sensor;
+  bool alarm;
+}sysRunning_s;
+sysRunning_s sysAct;
 
 static void IRAM_ATTR TimerCallback(void* arg) {
   static uint16_t counter = 0;
@@ -215,7 +223,6 @@ static void IRAM_ATTR TimerCallback(void* arg) {
   // set here 1ms timer
   readButtons();
   if (myTimers.rst.BME68xMeasTimerElapsed > 0) {myTimers.rst.BME68xMeasTimerElapsed --;}
-
 
   if (counter % 10 == 0) {
     // set here 10ms timers
@@ -234,7 +241,6 @@ static void IRAM_ATTR TimerCallback(void* arg) {
         if (myTimers.rst.eeprom > 0) {myTimers.rst.eeprom --;}  
         if (myTimers.rst.backlight > 0) {myTimers.rst.backlight --;}
         if (myTimers.rst.adc > 0) { myTimers.rst.adc --;}
-        if (myTimers.rst.system > 0) {myTimers.rst.system --;}
         //if (myTimers.noRst.weatherDataFetch > 0) {myTimers.noRst.weatherDataFetch --;}
         counter = 0;
       }
@@ -313,13 +319,14 @@ void setup() {
   initI2C();
   initLCD();
   initTimer();  
-  delay(1);
 }
 
 void loop() {
   memset((void*)&myTimers.rst, 0, sizeof(myTimers.rst));
-  //initSensorFunc();
-
+  if (rtcInit != RTC_KEY) {
+    memset(&rtcBkp, 0, sizeof(rtcBkp));
+  }
+  
   getWakeupCause();
 #ifdef SERIAL_ENABLED
   initSerial();
@@ -343,13 +350,21 @@ void loop() {
     calcAirQuality();
     interface();
 #ifndef SERIAL_ENABLED
-    if (myTimers.rst.system == 0 && interfaceCanSleep() == 1 && alarmRinging() == 0) { break; }
+    if (myTimers.rst.system == 0 && sysCanSleep()) { break; }
 #endif
   }
   backlightOff();
   stopTimer();
   //deInitPins();
   gotoLightSleep();
+}
+
+bool sysCanSleep(void)
+{
+  if (sysAct.ui || sysAct.wifi || sysAct.sensor || sysAct.alarm)
+    return 0;
+  else
+    return 1;
 }
 
 extern "C" void esp_clk_slowclk_cal_set(uint32_t cal_val);
