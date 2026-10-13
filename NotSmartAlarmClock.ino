@@ -37,7 +37,8 @@ const char* github_repo = "NotSmartAlarmClock";
 
 
 #define RTC_KEY 0xB00B1EE5
-typedef struct {
+typedef struct __attribute__((packed, aligned(1))){
+  uint32_t magicStart;
   struct {  
     uint32_t magic;
     uint8_t state[BSEC_MAX_STATE_BLOB_SIZE];
@@ -59,6 +60,7 @@ typedef struct {
       tm lastSyncTime;
     } lastConn;
   }wifi;
+  uint32_t magicEnd;
 } BackupDataRTC;
 
 RTC_NOINIT_ATTR uint32_t rtcInit;
@@ -307,7 +309,8 @@ void getWakeupCause(void)
   if (cause == ESP_SLEEP_WAKEUP_TIMER) {
     myTimers.rst.system = SYSTEM_SLEEP_WAIT_FAST;
   } else if (cause == ESP_SLEEP_WAKEUP_GPIO) {
-    myTimers.rst.system = SYSTEM_SLEEP_WAIT_MID;
+      myTimers.rst.system = eeprom.data.backlight.stbToutSec * 10; 
+      //myTimers.rst.system = SYSTEM_SLEEP_WAIT_MID;
   } else {
     myTimers.rst.system = SYSTEM_SLEEP_WAIT_FAST;
   }
@@ -319,14 +322,17 @@ void setup() {
   initI2C();
   initLCD();
   initTimer();  
+  memset(&rtcBkp, 0, sizeof(rtcBkp));
+  if(rtcBkp.magicStart != RTC_KEY || rtcBkp.magicEnd != RTC_KEY) {
+    memset(&rtcBkp, 0, sizeof(rtcBkp));
+    rtcBkp.magicStart = RTC_KEY;
+    rtcBkp.magicEnd = RTC_KEY;
+  }
 }
 
 void loop() {
   memset((void*)&myTimers.rst, 0, sizeof(myTimers.rst));
-  if (rtcInit != RTC_KEY) {
-    memset(&rtcBkp, 0, sizeof(rtcBkp));
-  }
-  
+
   getWakeupCause();
 #ifdef SERIAL_ENABLED
   initSerial();
@@ -334,6 +340,7 @@ void loop() {
 
   // all init here
   startTimer();
+  setRtcTimezone();
   while (1) {
     manageEEProm();
     checkVariables();

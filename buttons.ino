@@ -34,12 +34,12 @@ void checkEncoder() {
   // IMPORTANT: convert transitions → 1 detent
   if (encState >= 4) {
     btnStatus.encoder.steps++;
-    myTimers.rst.system = SYSTEM_SLEEP_WAIT_MID;
     encState = 0;
+    myTimers.rst.system = eeprom.data.backlight.stbToutSec * 10;
   } else if (encState <= -4) {
     btnStatus.encoder.steps--;
-    myTimers.rst.system = SYSTEM_SLEEP_WAIT_MID;
     encState = 0;
+    myTimers.rst.system = eeprom.data.backlight.stbToutSec * 10; 
   }
   prevAB = ab;
 
@@ -47,8 +47,8 @@ void checkEncoder() {
   btnHistory = (btnHistory << 1) | rawBtn;
   if (btnHistory == 0x00 && lastBtnStable == 1) {
     btnStatus.encoder.click = 1;
-    myTimers.rst.system = SYSTEM_SLEEP_WAIT_MID;
     lastBtnStable = 0;
+    myTimers.rst.system = eeprom.data.backlight.stbToutSec * 10; 
   } else if (btnHistory == 0xFF && lastBtnStable == 0) {
     lastBtnStable = 1;
   }
@@ -104,8 +104,8 @@ void checkTopButton(void)
   btnHistory = (btnHistory << 1) | rawBtn;
   if (btnHistory == 0x00 && lastBtnStable == 1) {
     btnStatus.topButton = 1;
-    myTimers.rst.system = SYSTEM_SLEEP_WAIT_MID;
     lastBtnStable = 0;
+    myTimers.rst.system = eeprom.data.backlight.stbToutSec * 10;   
   } else if (btnHistory == 0xFF && lastBtnStable == 0) {
     lastBtnStable = 1;
   }

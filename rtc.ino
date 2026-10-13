@@ -30,6 +30,11 @@ void setRtcTime(uint8_t hour, uint8_t min, uint8_t sec, uint8_t day, uint8_t mon
   settimeofday(&tv, NULL);
 }
 
+void setRtcTimezone(void)
+{
+  configTime((int32_t)(eeprom.data.time.timezone * 3600), eeprom.data.time.isDST * 3600, nullptr, nullptr);
+}
+
 void checkTime() {
   if (myTimers.rst.clock == 0) {
     uint8_t currDay = sysTime.calendar.tm_mday;
