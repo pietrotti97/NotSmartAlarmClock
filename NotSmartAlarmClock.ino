@@ -60,6 +60,7 @@ typedef struct __attribute__((packed, aligned(1))){
       tm lastSyncTime;
     } lastConn;
   }wifi;
+  int16_t secondsDriftPerDay;
   uint32_t magicEnd;
 } BackupDataRTC;
 
@@ -377,6 +378,7 @@ bool sysCanSleep(void)
 extern "C" void esp_clk_slowclk_cal_set(uint32_t cal_val);
 
 void gotoLightSleep() {
+  rtcBkp.secondsDriftPerDay = eeprom.data.time.secondsDriftPerDay;
   gpio_wakeup_enable((gpio_num_t)PIN_BTN1, GPIO_INTR_LOW_LEVEL);
   gpio_wakeup_enable((gpio_num_t)PIN_ENCODER_BTN, GPIO_INTR_LOW_LEVEL);
   switch (btnStatus.sideSwitch) {
@@ -405,8 +407,8 @@ void gotoLightSleep() {
   //gpio_pullup_en((gpio_num_t)I2C_SDA);
   //gpio_pullup_en((gpio_num_t)I2C_SCL);
 
-  gpio_hold_en((gpio_num_t)I2C_SDA);
-  gpio_hold_en((gpio_num_t)I2C_SCL);
+  //gpio_hold_en((gpio_num_t)I2C_SDA);
+  //gpio_hold_en((gpio_num_t)I2C_SCL);
 
   esp_sleep_enable_gpio_wakeup();
 
@@ -418,17 +420,28 @@ void gotoLightSleep() {
   uint64_t nowUs = ((uint64_t)now.tv_sec * US_PER_SECOND) + (uint64_t)now.tv_usec;
   //uint64_t nextMinuteUs = ((nowUs / US_PER_MINUTE) + 1ULL) * US_PER_MINUTE;
   uint64_t nextMinuteUs = (((nowUs / US_PER_MINUTE) + 1ULL) * US_PER_MINUTE) + 500000ULL;
-  uint64_t sleepDuration = nextMinuteUs - nowUs;
+  uint64_t sleepDuration;
+  if (nextMinuteUs > nowUs) {
+    sleepDuration = nextMinuteUs - nowUs;
+  } else {
+    sleepDuration = 1000000ULL;
+  }
 
   if (sleepDuration < 10000ULL) { sleepDuration = 10000ULL; }
+  if (sleepDuration > 90000000ULL) { sleepDuration = 60000000; }
   esp_sleep_enable_timer_wakeup(sleepDuration);
   
   esp_light_sleep_start();
-
+  esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_GPIO);
+  gpio_wakeup_disable((gpio_num_t)PIN_BTN1);
+  gpio_wakeup_disable((gpio_num_t)PIN_ENCODER_BTN);
+  gpio_wakeup_disable((gpio_num_t)PIN_SWITCH_A);
+  gpio_wakeup_disable((gpio_num_t)PIN_SWITCH_B);
+  
   struct timeval afterSleep;
   gettimeofday(&afterSleep, nullptr);
   uint64_t actualSleepUs = ((uint64_t)afterSleep.tv_sec * US_PER_SECOND + afterSleep.tv_usec) - nowUs;
-  int64_t driftUs = ((int64_t)actualSleepUs * eeprom.data.time.secondsDriftPerDay) / 86400LL;
+  int64_t driftUs = ((int64_t)actualSleepUs *  rtcBkp.secondsDriftPerDay) / 86400LL;
   int64_t correctedTimeUs = ((int64_t)afterSleep.tv_sec * US_PER_SECOND) + afterSleep.tv_usec + driftUs;
 
   afterSleep.tv_sec = correctedTimeUs / US_PER_SECOND;
@@ -439,6 +452,6 @@ void gotoLightSleep() {
   gpio_hold_dis((gpio_num_t)PIN_3V3_SW);
   gpio_hold_dis((gpio_num_t)PIN_EN_ADCVBAT);
   gpio_hold_dis((gpio_num_t)PIN_BACKLIGHT);
-  gpio_hold_dis((gpio_num_t)I2C_SDA);
-  gpio_hold_dis((gpio_num_t)I2C_SCL);
+  //gpio_hold_dis((gpio_num_t)I2C_SDA);
+  //gpio_hold_dis((gpio_num_t)I2C_SCL);
 }
