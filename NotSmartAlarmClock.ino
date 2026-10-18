@@ -311,7 +311,6 @@ void getWakeupCause(void)
     myTimers.rst.system = SYSTEM_SLEEP_WAIT_FAST;
   } else if (cause == ESP_SLEEP_WAKEUP_GPIO) {
       myTimers.rst.system = eeprom.data.backlight.stbToutSec * 10; 
-      //myTimers.rst.system = SYSTEM_SLEEP_WAIT_MID;
   } else {
     myTimers.rst.system = SYSTEM_SLEEP_WAIT_FAST;
   }
@@ -358,7 +357,7 @@ void loop() {
     calcAirQuality();
     interface();
 #ifndef SERIAL_ENABLED
-    if (myTimers.rst.system == 0 && sysCanSleep()) { break; }
+    if (eeprom.data.backlight.stbToutSec != 130 && myTimers.rst.system == 0 && sysCanSleep()) { break; }
 #endif
   }
   backlightOff();

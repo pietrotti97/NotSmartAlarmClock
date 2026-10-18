@@ -1232,7 +1232,10 @@ void displaySetBacklight(void)
   drawString(80, 35, 8, string);
   snprintf(string, sizeof(string),"Stb Tout:");
   drawString(2, 48, 8, string);
-  snprintf(string, sizeof(string),"%2d s", stbTout);
+  if (stbTout <= 120) 
+    snprintf(string, sizeof(string),"%2d s", stbTout);
+  else
+    snprintf(string, sizeof(string),"no");
   drawString(80, 48, 8, string);
   snprintf(string, sizeof(string),"Contrast:");
   drawString(2, 60, 8, string);
@@ -1283,7 +1286,13 @@ void displaySetBacklight(void)
               setBacklight(1, bklPerc, 1);
             } 
           break;
-        case 2: if (stbTout < 120) {stbTout ++;} break;
+        case 2: 
+          if (stbTout < 120) {
+            stbTout ++;
+          } else {
+            stbTout = 130;
+          }
+          break;
         case 3:
           if (contrast < 255) {
             contrast ++;
@@ -1303,7 +1312,14 @@ void displaySetBacklight(void)
             setBacklight(1, bklPerc, 1);
           }
           break;
-        case 2: if (stbTout > 30) {stbTout --;} break;
+        case 2: 
+          if (stbTout > 30) {
+            if(stbTout == 130)
+              stbTout = 120;
+            else 
+              stbTout --;
+          } 
+          break;
         case 3:
           if (contrast > 100) {
             contrast --;
