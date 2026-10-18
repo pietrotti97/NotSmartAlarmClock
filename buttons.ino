@@ -28,7 +28,9 @@ void checkEncoder() {
   };
 
   int8_t movement = table[index];
-
+  if ((movement > 0 && encState < 0) || (movement < 0 && encState > 0)) {
+    encState = 0;
+  }
   encState += movement;
 
   // IMPORTANT: convert transitions → 1 detent
