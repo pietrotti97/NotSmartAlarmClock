@@ -3,6 +3,9 @@
 #define BTN_RELEASED 0
 #define BTN_PRESSED  1
 
+#define TIME_UIREFRESH_FAST_MS  1
+#define TIME_UIREFRESH_SLOW_MS  5
+
 U8G2_ST7567_ENH_DG128064I_F_HW_I2C u8g2(U8G2_R2, I2C_SCL, I2C_SDA, U8X8_PIN_NONE); //U8G2_ST7567_JLX12864_F_HW_I2C
 
 typedef enum{
@@ -206,7 +209,7 @@ void interface()
     }
     u8g2.sendBuffer();
     if (ui.position == UI_HOME) {
-      myTimers.rst.uiRefresh = 5;
+      myTimers.rst.uiRefresh = TIME_UIREFRESH_SLOW_MS;
     } else {
       if (myTimers.rst.uiTout == 0) {
         ui.position = UI_HOME;
@@ -216,7 +219,7 @@ void interface()
         ui.refresh = true;
         myTimers.rst.uiRefresh = 0;
       } else {
-        myTimers.rst.uiRefresh = 1;
+        myTimers.rst.uiRefresh = TIME_UIREFRESH_FAST_MS;
       }
     }
   }
@@ -411,6 +414,7 @@ void displayMenu(void) {
       ui.action.encSteps ++;
     }
     ui.refresh = true;
+    myTimers.rst.uiTout = LCD_UI_TOUT_SHORT;
   }
 }
 
