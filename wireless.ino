@@ -127,7 +127,11 @@ void wifiHandler(void)
       time_t newTime = time(NULL);
       int16_t timeDrift = (int16_t)((int64_t)newTime - oldTimeCorrected);
       logPrintf("\tRTC Drift is: %d seconds", timeDrift);
-      eeprom.data.time.secondsDriftPerDay = timeDrift;
+      if (abs(timeDrift) >= 14400) //8 hours threshold
+        eeprom.data.time.secondsDriftPerDay = 0; // something is very wrong with rtc or it's the first sync after a reset
+      else
+        eeprom.data.time.secondsDriftPerDay = eeprom.data.time.secondsDriftPerDay + timeDrift;
+      
       rtcBkp.wifi.lastConn.result = 2;
       wifiData.status = WL_STATUS_DISCONNECT;
     } break;
