@@ -8,12 +8,14 @@
 #include <Wire.h>
 #include "bsec2.h"
 
+#include "melodyComposer.h"
+
 extern "C" {
   #include "soc/rtc.h"
 }
 
 const uint8_t currentFwVer = 1;
-const uint8_t currentFwRel = 0;
+const uint8_t currentFwRel = 1;
 const char* github_user = "pietrotti97";
 const char* github_repo = "NotSmartAlarmClock";
 
@@ -149,34 +151,6 @@ typedef enum {
 }airQuality_e;
 
 typedef struct {
-  struct {
-    int16_t secondsDriftPerDay;
-    float timezone;
-    uint8_t isDST;
-  }time;
-  struct {
-    uint8_t hour;
-    uint8_t min;
-    uint8_t dow;  // bitmask as xdlmmgvs
-    uint8_t snoozeMin;  // snooze minutes
-  }alarm;
-  struct {
-    int16_t altitude;
-  }info;
-  struct {
-    char ssid[33];
-    char pwd[64];
-    uint8_t syncHour;
-  }wifiNet;
-  struct {
-    uint8_t durationSec;
-    uint8_t perc;
-    uint8_t stbToutSec;
-    uint8_t contrast;
-  }backlight;
-}data_s;
-
-typedef struct {
   float vBatt;
   weatherForecast_e forecastVal;  // 0 no data, 1 stab
   airQuality_e airQuality;
@@ -204,6 +178,36 @@ typedef struct {
   }bsec2;
 }sensor_s;
 sensor_s ambData;
+
+typedef struct {
+  struct {
+    int16_t secondsDriftPerDay;
+    float timezone;
+    uint8_t isDST;
+  }time;
+  struct {
+    uint8_t hour;
+    uint8_t min;
+    uint8_t dow;  // bitmask as xdlmmgvs
+    uint8_t snoozeMin;  // snooze minutes
+  }alarm;
+  struct {
+    int16_t altitude;
+  }info;
+  struct {
+    char ssid[33];
+    char pwd[64];
+    uint8_t syncHour;
+  }wifiNet;
+  struct {
+    uint8_t durationSec;
+    uint8_t perc;
+    uint8_t stbToutSec;
+    uint8_t contrast;
+  }backlight;
+
+  melodyCustom_s myMelody;
+}data_s;
 
 typedef struct {
   data_s data;
@@ -376,7 +380,8 @@ bool sysCanSleep(void)
 
 extern "C" void esp_clk_slowclk_cal_set(uint32_t cal_val);
 
-void gotoLightSleep() {
+void gotoLightSleep()
+{
   rtcBkp.secondsDriftPerDay = eeprom.data.time.secondsDriftPerDay;
   gpio_wakeup_enable((gpio_num_t)PIN_BTN1, GPIO_INTR_LOW_LEVEL);
   gpio_wakeup_enable((gpio_num_t)PIN_ENCODER_BTN, GPIO_INTR_LOW_LEVEL);
@@ -406,10 +411,9 @@ void gotoLightSleep() {
   //gpio_pullup_en((gpio_num_t)I2C_SDA);
   //gpio_pullup_en((gpio_num_t)I2C_SCL);
 
-  //gpio_hold_en((gpio_num_t)I2C_SDA);
-  //gpio_hold_en((gpio_num_t)I2C_SCL);
+  gpio_hold_en((gpio_num_t)I2C_SDA);
+  gpio_hold_en((gpio_num_t)I2C_SCL);
 
-  esp_sleep_enable_gpio_wakeup();
 
   struct timeval now;
   gettimeofday(&now, nullptr);
@@ -429,7 +433,8 @@ void gotoLightSleep() {
   if (sleepDuration < 10000ULL) { sleepDuration = 10000ULL; }
   if (sleepDuration > 90000000ULL) { sleepDuration = 60000000; }
   esp_sleep_enable_timer_wakeup(sleepDuration);
-  
+  esp_sleep_enable_gpio_wakeup();
+
   esp_light_sleep_start();
   esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_GPIO);
   gpio_wakeup_disable((gpio_num_t)PIN_BTN1);
@@ -451,6 +456,6 @@ void gotoLightSleep() {
   gpio_hold_dis((gpio_num_t)PIN_3V3_SW);
   gpio_hold_dis((gpio_num_t)PIN_EN_ADCVBAT);
   gpio_hold_dis((gpio_num_t)PIN_BACKLIGHT);
-  //gpio_hold_dis((gpio_num_t)I2C_SDA);
-  //gpio_hold_dis((gpio_num_t)I2C_SCL);
+  gpio_hold_dis((gpio_num_t)I2C_SDA);
+  gpio_hold_dis((gpio_num_t)I2C_SCL);
 }

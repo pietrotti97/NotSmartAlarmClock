@@ -19,11 +19,12 @@ typedef enum{
   UI_SET_WIFI_SYNC,     // set wifi sync details
   //UI_SET_SECONDSDRIFT,  // set drift per day in seconds
   UI_SET_BACKLIGHT,     // set backlight intensity, timeout and system sleep
+  UI_SET_MELCOMPOSER,   // melody composer
   UI_SET_REALTIMEDATA,  // view realtime data from sensors
   UI_NOF
 }uiStates_e;
 
-const char* options[] = { "Set Time", "Set Alarm", "Altitude", "Back", "Snooze Time", "WiFi", "NTP Sync", "Backlight", "RealTime data"};
+const char* options[] = { "Set Time", "Set Alarm", "Altitude", "Back", "Snooze Time", "WiFi", "NTP Sync", "Backlight", "Music Composer", "RealTime data"};
 const uint8_t optionCount = UI_NOF -1;
 
 typedef struct {
@@ -204,6 +205,7 @@ void interface()
       case UI_SET_WIFI_SYNC: displaySetNtpSync(); break;
       //case UI_SET_SECONDSDRIFT: displaySetSecondsdrift(); break;
       case UI_SET_BACKLIGHT: displaySetBacklight(); break;
+      case UI_SET_MELCOMPOSER: displayMelodyComposer(); break;
       case UI_SET_REALTIMEDATA: displayRealtimeData(); break;
       default: ui.position = UI_HOME; break;
     }
@@ -397,7 +399,8 @@ void displayMenu(void) {
       case 6: ui.position = UI_SET_WIFI_SYNC; break;
       //case 7: ui.position = UI_SET_SECONDSDRIFT; break;
       case 7: ui.position = UI_SET_BACKLIGHT; break;
-      case 8: ui.position = UI_SET_REALTIMEDATA; break; 
+      case 8: ui.position = UI_SET_MELCOMPOSER; break;
+      case 9: ui.position = UI_SET_REALTIMEDATA; break; 
       default: ui.position = UI_MENU; break;
     }
     ui.action.encBtn = BTN_RELEASED;
@@ -1327,6 +1330,268 @@ void displaySetBacklight(void)
           }
           break;
         default: selectField = 0; break;        
+      }
+    }
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+    ui.refresh = true;
+  }
+}
+
+typedef enum {
+  PHASE_SELECT,
+  PHASE_SET_NOTE,
+  PHASE_SET_TONE,
+  PHASE_SET_TEMPO,
+  PHASE_END_DELETE,
+  PHASE_END_ACCEPT,
+  PHASE_END_BACK,
+  PHASE_COPMPOSER_NOF
+}noteComposerSeq_e;
+void displayMelodyComposer() 
+{
+  static bool onEnter = false;
+  static noteComposerSeq_e selectPhase = PHASE_SELECT;
+  static uint8_t currField = 0;
+  char string[30];
+  snprintf(string, sizeof(string), "MUSIC COMPOSER");
+  drawString(1, 9, 8, string);
+  u8g2.drawHLine(1, 10, 128);
+  static melodyCustom_s myMelody = {0};
+  myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+  backlightOn();
+
+  if (onEnter == false) {
+    memcpy(&myMelody, &eeprom.data.myMelody, sizeof(melodyCustom_s));
+    currField = 0;
+  }
+  onEnter = true;
+
+  // drawString(X, Y, size, string);
+  uint8_t xCoordBase = 0;
+  uint8_t yCoordBase = 20;
+  uint8_t xCoord = xCoordBase;
+  uint8_t yCoord = yCoordBase;
+  for(int i=0; i<=myMelody.slotsUsed; i++) {
+    snprintf(string, sizeof(string),"%02d", myMelody.music[i].tempo);
+    drawString(xCoord, yCoord, 6, string);
+    xCoord += 12;
+    switch(myMelody.music[i].note) {
+      case 0: snprintf(string, sizeof(string), "-"); break;
+      case 1: snprintf(string, sizeof(string), "C"); break;
+      case 2: snprintf(string, sizeof(string), "C#"); break;
+      case 3: snprintf(string, sizeof(string), "D"); break;
+      case 4: snprintf(string, sizeof(string), "D#"); break;
+      case 5: snprintf(string, sizeof(string), "E"); break;
+      case 6: snprintf(string, sizeof(string), "F"); break;
+      case 7: snprintf(string, sizeof(string), "F#"); break;
+      case 8: snprintf(string, sizeof(string), "G"); break;
+      case 9: snprintf(string, sizeof(string), "G#"); break;
+      case 10: snprintf(string, sizeof(string), "A"); break;
+      case 11: snprintf(string, sizeof(string), "A#"); break;
+      case 12: snprintf(string, sizeof(string), "B"); break;
+      default: myMelody.music[i].note = 0; break;
+    }
+    drawString(xCoord, yCoord, 6, string);
+    xCoord += 12;
+    snprintf(string, sizeof(string),"%d", myMelody.music[i].octave);
+    drawString(xCoord, yCoord, 6, string);
+    if (xCoord > 90) {
+      yCoord += 10;
+      xCoord = xCoordBase;
+    } else {
+      xCoord = xCoord + 12;
+    }
+  }
+
+  xCoord = xCoordBase;
+  yCoord = yCoordBase;
+  snprintf(string, sizeof(string), "DEL    ACCEPT    BACK");
+  drawString(0, 62, 6, string);
+  switch (selectPhase) {
+    case PHASE_SELECT:
+      xCoord = xCoordBase + 1 + (35*currField);
+      if (xCoord > 90) {
+        xCoord = xCoordBase;
+        yCoord += 10;
+      }
+      u8g2.drawHLine(xCoord, yCoord, 30);
+    break;
+    case PHASE_SET_NOTE:
+      xCoord = xCoordBase +(35*currField) + 12;
+      if (xCoord > 95) {
+        xCoord = xCoordBase;
+        yCoord += 10;
+      }
+      u8g2.drawHLine(xCoord, yCoord, 10);
+    break;
+    case PHASE_SET_TONE:
+      xCoord = xCoordBase +(35*currField) + 23;
+      if (xCoord > 90) {
+        xCoord = xCoordBase;
+        yCoord += 10;
+      }
+      u8g2.drawHLine(xCoord, yCoord, 6);
+    break;
+    case PHASE_SET_TEMPO:
+      xCoord = xCoordBase +(35*currField);
+      if (xCoord > 90) {
+        xCoord = xCoordBase;
+        yCoord += 10;
+      }
+      u8g2.drawHLine(xCoord, yCoord, 12);
+    break;
+    case PHASE_END_DELETE:
+      u8g2.drawHLine(0, 63, 17);
+    break;
+    case PHASE_END_ACCEPT:
+      u8g2.drawHLine(42, 63, 35);
+    break;
+    case PHASE_END_BACK:
+      u8g2.drawHLine(102, 63, 24);
+    break;
+    case PHASE_COPMPOSER_NOF:
+    default:
+      selectPhase = PHASE_SELECT;
+    break;
+  }
+
+  if (ui.action.topBtn == BTN_PRESSED) {
+    
+    // play melody
+    for(int i=0; i<myMelody.slotsUsed; i++) {
+      tone(PIN_BUZZER, notesMatrix[myMelody.music[i].note][myMelody.music[i].octave]);
+      delay(myMelody.music[i].tempo * 100);
+      
+    }
+    noTone(PIN_BUZZER);
+    ui.action.topBtn = BTN_RELEASED;
+    ui.refresh = true;
+  } 
+  if (ui.action.encBtn == BTN_PRESSED) {
+    logPrintf("\n\rPhase: %d, Field: %d, Note: %d, Octave: %d, Tempo: %d; Used: %d", selectPhase, currField, myMelody.music[currField].note, myMelody.music[currField].octave, myMelody.music[currField].tempo, myMelody.slotsUsed);
+    switch (selectPhase) {
+      case PHASE_SELECT:
+      if (currField < MUSIC_DB_NOTES_MAX) {
+          selectPhase = PHASE_SET_NOTE;
+        } else {
+          selectPhase = PHASE_END_ACCEPT;
+          currField = 0;
+        }
+      break;
+      case PHASE_SET_NOTE:
+      selectPhase = PHASE_SET_TONE;
+      break;
+      case PHASE_SET_TONE:
+      selectPhase = PHASE_SET_TEMPO;
+      break;
+      case PHASE_SET_TEMPO:
+      if (myMelody.music[currField].note == 0 && myMelody.music[currField].octave == 0 && myMelody.music[currField].tempo == 0) {
+        selectPhase = PHASE_END_ACCEPT;
+      } else {
+        myMelody.slotsUsed ++;
+        currField ++;
+        selectPhase = PHASE_SELECT;
+      }
+      break;
+      case PHASE_END_DELETE:
+        memset(&myMelody, 0, sizeof(melodyCustom_s));
+        currField = 0;
+        selectPhase = PHASE_SELECT;
+      break;
+      case PHASE_END_ACCEPT:
+        selectPhase = PHASE_SELECT;
+        currField = 0;
+        memset(&eeprom.data.myMelody, 0, sizeof(melodyCustom_s));
+        memcpy(&eeprom.data.myMelody, &myMelody, sizeof(melodyCustom_s));
+        backlightOff();
+        ui.position = UI_MENU;
+        ui.refresh = true;
+        onEnter = false;
+        break;
+      case PHASE_END_BACK:
+        currField = 0;
+        selectPhase = PHASE_SELECT;
+        backlightOff();
+        ui.position = UI_MENU;
+        ui.refresh = true;
+        onEnter = false;
+      break;
+
+      default:
+      selectPhase = PHASE_SELECT;
+      currField = 0;
+      break;
+    }
+    //onEnter = false;
+    //ui.position = UI_MENU;
+    //backlightOff();
+    myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
+    ui.action.encBtn = BTN_RELEASED;
+    ui.refresh = true;
+  } 
+
+  if (ui.action.encSteps != 0) {
+    logPrintf("\n\rPhase: %d, Field: %d, Note: %d, Octave: %d, Tempo: %d; Used: %d", selectPhase, currField, myMelody.music[currField].note, myMelody.music[currField].octave, myMelody.music[currField].tempo, myMelody.slotsUsed);
+    if (ui.action.encSteps > 0) {
+      ui.action.encSteps --;
+      // increase number
+      switch (selectPhase) {
+        case PHASE_SELECT:
+          if (currField < MUSIC_DB_NOTES_MAX && currField <= myMelody.slotsUsed) 
+            currField ++;
+            else 
+            selectPhase = PHASE_END_ACCEPT;
+        break;
+        case PHASE_SET_NOTE:
+          if (myMelody.music[currField].note <= 12)
+          myMelody.music[currField].note ++;
+          logPrintf("\n\rNote: %d", myMelody.music[currField].note);
+        break;
+        case PHASE_SET_TONE:
+          myMelody.music[currField].octave ++;
+          logPrintf("\n\rOctave: %d", myMelody.music[currField].octave);
+        break;
+        case PHASE_SET_TEMPO:
+          myMelody.music[currField].tempo ++;
+          logPrintf("\n\rTempo: %d", myMelody.music[currField].tempo);
+        break;
+        case PHASE_END_DELETE: selectPhase = PHASE_END_ACCEPT; break;
+        case PHASE_END_ACCEPT: selectPhase = PHASE_END_BACK; break;
+        case PHASE_END_BACK: selectPhase = PHASE_END_DELETE; break;
+        case PHASE_COPMPOSER_NOF:
+        default:
+          selectPhase = PHASE_SELECT;
+        break;
+      }
+    } else if (ui.action.encSteps < 0) {
+      ui.action.encSteps ++;
+      // decrease number
+      switch (selectPhase) {
+        case PHASE_SELECT:
+          if (currField > 0) currField --;
+        break;
+        case PHASE_SET_NOTE:
+          if (myMelody.music[currField].note > 0)
+            myMelody.music[currField].note --;
+          logPrintf("\n\rNote: %d", myMelody.music[currField].note);
+        break;
+        case PHASE_SET_TONE:
+          if (myMelody.music[currField].octave > 0)
+            myMelody.music[currField].octave --;
+          logPrintf("\n\rOctave: %d", myMelody.music[currField].octave);
+        break;
+        case PHASE_SET_TEMPO:
+          if (myMelody.music[currField].tempo > 0)
+            myMelody.music[currField].tempo --;
+          logPrintf("\n\rTempo: %d", myMelody.music[currField].tempo);
+        break;
+        case PHASE_END_DELETE: selectPhase = PHASE_END_BACK; break;
+        case PHASE_END_ACCEPT: selectPhase = PHASE_END_DELETE; break;
+        case PHASE_END_BACK: selectPhase = PHASE_END_ACCEPT; break;
+        case PHASE_COPMPOSER_NOF:
+        default:
+          selectPhase = PHASE_SELECT;
+        break;
       }
     }
     myTimers.rst.uiTout = LCD_UI_TOUT_LONG;
